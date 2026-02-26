@@ -19,16 +19,13 @@ class TournamentEngine
 
         $koPlayerCount = Game::where('tournament_id', $tournament->id)
             ->where('round', 1)
-            ->pluck('player1_id')
-            ->merge(
-                Game::where('tournament_id', $tournament->id)
-                    ->where('round', 1)
-                    ->pluck('player2_id')
-            )
+            ->where('is_group_match', 0)   // 🔥 wichtig
+            ->get()
+            ->flatMap(fn($g) => [$g->player1_id, $g->player2_id])
             ->unique()
             ->count();
 
-        $totalRounds = log($koPlayerCount, 2);
+        $totalRounds = $koPlayerCount > 0 ? log($koPlayerCount, 2) : 0;
 
         // Gewinner setzen
         $game->update([

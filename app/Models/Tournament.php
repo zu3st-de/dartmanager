@@ -17,6 +17,7 @@ class Tournament extends Model
         'group_advance_count',
         'has_lucky_loser',
         'has_third_place',
+        'group_best_of',
         'status',
     ];
 
