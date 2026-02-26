@@ -234,10 +234,29 @@
             @if ($tournament->status === 'ko_running' || $tournament->status === 'finished')
 
             @php
-            $groupedGames = $tournament->games->sortBy('position')->groupBy('round');
+            $koGames = $tournament->games
+            ->where('is_group_match', 0);
 
-            $totalPlayers = $tournament->players->count();
-            $totalRounds = log($totalPlayers, 2);
+            $groupedGames = $koGames
+            ->sortBy('position')
+            ->groupBy('round');
+
+            $koPlayers = $koGames
+            ->where('round', 1)
+            ->flatMap(fn($g) => [$g->player1_id, $g->player2_id])
+            ->unique()
+            ->count();
+
+            $totalRounds = $koPlayers > 0 ? log($koPlayers, 2) : 0;
+
+            $koPlayers = $tournament->games
+            ->where('round', 1)
+            ->flatMap(fn($g) => [$g->player1_id, $g->player2_id])
+            ->unique()
+            ->count();
+
+            $totalRounds = $koPlayers > 0 ? log($koPlayers, 2) : 0;
+
             @endphp
 
             <div class="overflow-x-auto">

@@ -37,27 +37,28 @@ class KnockoutGenerator
     }
     public function generateFromCollection(Tournament $tournament, $players)
     {
-        $players = collect($players)->values();
+        // ALTE KO-SPIELE LÖSCHEN
+        Game::where('tournament_id', $tournament->id)
+            ->where('is_group_match', 0)
+            ->delete();
 
-        $playerCount = $players->count();
+        $players = $players->values();
 
-        // Sicherstellen, dass es eine 2er-Potenz ist
-        if (($playerCount & ($playerCount - 1)) !== 0) {
-            throw new \Exception('KO-Teilnehmer müssen eine 2er-Potenz sein.');
-        }
+        $totalPlayers = $players->count();
+        $totalRounds = log($totalPlayers, 2);
 
-        $round = 1;
         $position = 1;
 
-        for ($i = 0; $i < $playerCount; $i += 2) {
+        for ($i = 0; $i < $totalPlayers; $i += 2) {
 
-            \App\Models\Game::create([
+            Game::create([
                 'tournament_id' => $tournament->id,
-                'player1_id'    => $players[$i]->id,
-                'player2_id'    => $players[$i + 1]->id,
-                'round'         => $round,
-                'position'      => $position++,
-                'best_of'       => 3,
+                'player1_id' => $players[$i]->id,
+                'player2_id' => $players[$i + 1]->id,
+                'round' => 1,
+                'position' => $position++,
+                'best_of' => 3,
+                'is_group_match' => 0,
             ]);
         }
     }
