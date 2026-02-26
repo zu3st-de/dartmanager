@@ -1,3 +1,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Bracket Linien */
+
+.bracket-game {
+    position: relative;
+}
+
+.bracket-game:not(.no-line)::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -24px;
+    width: 24px;
+    border-top: 1px solid #4b5563;
+}
+
+.bracket-game.bracket-top::before {
+    content: "";
+    position: absolute;
+    right: -24px;
+    top: 50%;
+    height: 100%;
+    border-right: 1px solid #4b5563;
+}
+
+.bracket-game.bracket-bottom::before {
+    content: "";
+    position: absolute;
+    right: -24px;
+    bottom: 50%;
+    height: 100%;
+    border-right: 1px solid #4b5563;
+}

@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Group;
+
+class GroupTableCalculator
+{
+    public function calculate(Group $group): array
+    {
+        $table = [];
+
+        foreach ($group->players as $player) {
+
+            $games = $group->games()
+                ->where(function ($q) use ($player) {
+                    $q->where('player1_id', $player->id)
+                        ->orWhere('player2_id', $player->id);
+                })
+                ->whereNotNull('winner_id')
+                ->get();
+
+            $points = 0;
+            $difference = 0;
+
+            foreach ($games as $game) {
+
+                $isWinner = $game->winner_id === $player->id;
+
+                // 1 Punkt pro Match-Sieg
+                if ($isWinner) {
+                    $points++;
+                }
+
+                // 🔥 Fall 1: Best of 1
+                if ($game->best_of == 1) {
+
+                    $rest = $game->loser_rest ?? 0;
+
+                    if ($isWinner) {
+                        $difference += $rest;
+                    } else {
+                        $difference -= $rest;
+                    }
+                }
+
+                // 🔥 Fall 2: Best of > 1
+                else {
+
+                    if ($game->player1_id === $player->id) {
+                        $diff = $game->player1_score - $game->player2_score;
+                    } else {
+                        $diff = $game->player2_score - $game->player1_score;
+                    }
+
+                    $difference += $diff;
+                }
+            }
+
+            $table[] = [
+                'player' => $player,
+                'points' => $points,
+                'difference' => $difference,
+            ];
+        }
+
+        // Sortierung
+        usort($table, function ($a, $b) {
+
+            if ($a['points'] !== $b['points']) {
+                return $b['points'] <=> $a['points'];
+            }
+
+            return $b['difference'] <=> $a['difference'];
+        });
+
+        return $table;
+    }
+}
