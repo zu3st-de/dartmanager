@@ -184,7 +184,16 @@ class TournamentController extends Controller
 
         $this->authorizeTournament($tournament);
 
+        // wenn Spiel schon entschieden → bei AJAX JSON zurückgeben
         if ($game->winner_id) {
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Spiel bereits entschieden'
+                ]);
+            }
+
             return back();
         }
 
@@ -200,14 +209,37 @@ class TournamentController extends Controller
 
         $firstTo = ceil($game->best_of / 2);
 
+        $winnerId = null;
+
         if ($game->player1_score >= $firstTo) {
+
+            $winnerId = $game->player1_id;
+
             app(TournamentEngine::class)
-                ->handleWin($game, $game->player1_id);
+                ->handleWin($game, $winnerId);
         }
 
         if ($game->player2_score >= $firstTo) {
+
+            $winnerId = $game->player2_id;
+
             app(TournamentEngine::class)
-                ->handleWin($game, $game->player2_id);
+                ->handleWin($game, $winnerId);
+        }
+
+        // Game neu laden (wichtig für AJAX)
+        $game->refresh();
+
+        // AJAX Response
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'game_id' => $game->id,
+                'winner_id' => $game->winner_id,
+                'player1_score' => $game->player1_score,
+                'player2_score' => $game->player2_score,
+            ]);
         }
 
         return back();
@@ -294,5 +326,24 @@ class TournamentController extends Controller
         if ($tournament->user_id !== auth()->id()) {
             abort(403);
         }
+    }
+    public function finishGroups(Tournament $tournament)
+    {
+        $this->authorizeTournament($tournament);
+
+        // prüfen ob alle Gruppenspiele fertig sind
+        $unfinished = Game::where('tournament_id', $tournament->id)
+            ->whereNotNull('group_id')
+            ->whereNull('winner_id')
+            ->exists();
+
+        if ($unfinished) {
+            return back()->with(
+                'error',
+                'Nicht alle Gruppenspiele sind abgeschlossen.'
+            );
+        }
+
+        return $this->startKo($tournament);
     }
 }

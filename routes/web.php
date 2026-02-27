@@ -69,6 +69,15 @@ Route::middleware('auth')->group(function () {
         [TournamentController::class, 'startKo']
     )
         ->name('tournaments.startKo');
+    Route::post(
+        '/tournaments/{tournament}/add-player',
+        [TournamentController::class, 'addPlayer']
+    )->name('tournaments.addPlayer');
+    Route::post(
+        '/tournaments/{tournament}/finish-groups',
+        [TournamentController::class, 'finishGroups']
+    )
+        ->name('tournaments.finishGroups');
 });
 
 
