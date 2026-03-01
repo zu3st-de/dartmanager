@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('games', function (Blueprint $table) {
-            $table->boolean('is_third_place')->default(false);
+        Schema::table('tournaments', function (Blueprint $table) {
+            //
         });
     }
 

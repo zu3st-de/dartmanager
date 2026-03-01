@@ -12,6 +12,12 @@ use App\Services\GroupTableCalculator;
 
 class TournamentController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | Übersicht
+    |--------------------------------------------------------------------------
+    */
+
     public function index()
     {
         $tournaments = auth()->user()
@@ -27,6 +33,12 @@ class TournamentController extends Controller
         return view('tournaments.create');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Turnier erstellen
+    |--------------------------------------------------------------------------
+    */
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -36,7 +48,6 @@ class TournamentController extends Controller
             'group_advance_count' => 'nullable|integer|min:1',
         ]);
 
-        // Pflichtfelder bei Gruppenphase
         if ($validated['mode'] === 'group_ko') {
 
             $request->validate([
@@ -77,6 +88,12 @@ class TournamentController extends Controller
             ->with('success', 'Turnier erfolgreich erstellt.');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Detailansicht
+    |--------------------------------------------------------------------------
+    */
+
     public function show(Tournament $tournament)
     {
         $this->authorizeTournament($tournament);
@@ -92,6 +109,12 @@ class TournamentController extends Controller
 
         return view('tournaments.show', compact('tournament'));
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Spieler hinzufügen
+    |--------------------------------------------------------------------------
+    */
 
     public function addPlayer(Request $request, Tournament $tournament)
     {
@@ -119,6 +142,12 @@ class TournamentController extends Controller
         return back();
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Spieler auslosen (Seed setzen)
+    |--------------------------------------------------------------------------
+    */
+
     public function draw(Tournament $tournament)
     {
         $this->authorizeTournament($tournament);
@@ -139,6 +168,12 @@ class TournamentController extends Controller
 
         return back();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Turnier starten
+    |--------------------------------------------------------------------------
+    */
 
     public function start(Tournament $tournament)
     {
@@ -166,8 +201,16 @@ class TournamentController extends Controller
 
         if ($tournament->mode === 'ko') {
 
+            $players = $tournament->players()
+                ->orderBy('seed')
+                ->get();
+
+            if ($players->count() < 2) {
+                abort(400);
+            }
+
             app(KnockoutGenerator::class)
-                ->generate($tournament);
+                ->generate($tournament, $players);
 
             $tournament->update([
                 'status' => 'ko_running'
@@ -178,13 +221,17 @@ class TournamentController extends Controller
             ->route('tournaments.show', $tournament);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Score aktualisieren
+    |--------------------------------------------------------------------------
+    */
+
     public function updateScore(Request $request, Game $game)
     {
         $tournament = $game->tournament;
-
         $this->authorizeTournament($tournament);
 
-        // wenn Spiel schon entschieden → bei AJAX JSON zurückgeben
         if ($game->winner_id) {
 
             if ($request->expectsJson()) {
@@ -208,31 +255,22 @@ class TournamentController extends Controller
         ]);
 
         $firstTo = ceil($game->best_of / 2);
-
         $winnerId = null;
 
         if ($game->player1_score >= $firstTo) {
-
             $winnerId = $game->player1_id;
-
-            app(TournamentEngine::class)
-                ->handleWin($game, $winnerId);
-        }
-
-        if ($game->player2_score >= $firstTo) {
-
+        } elseif ($game->player2_score >= $firstTo) {
             $winnerId = $game->player2_id;
+        }
 
+        if ($winnerId) {
             app(TournamentEngine::class)
                 ->handleWin($game, $winnerId);
         }
 
-        // Game neu laden (wichtig für AJAX)
         $game->refresh();
 
-        // AJAX Response
         if ($request->expectsJson()) {
-
             return response()->json([
                 'success' => true,
                 'game_id' => $game->id,
@@ -245,44 +283,36 @@ class TournamentController extends Controller
         return back();
     }
 
-    public function updateRoundBestOf(
-        Request $request,
-        Tournament $tournament,
-        $round
-    ) {
+    /*
+    |--------------------------------------------------------------------------
+    | Gruppenphase abschließen
+    |--------------------------------------------------------------------------
+    */
+
+    public function finishGroups(Tournament $tournament)
+    {
         $this->authorizeTournament($tournament);
 
-        $validated = $request->validate([
-            'best_of' => [
-                'required',
-                'integer',
-                'min:1',
-                function ($attribute, $value, $fail) {
-                    if ($value % 2 === 0) {
-                        $fail('Best-of muss eine ungerade Zahl sein.');
-                    }
-                }
-            ],
-        ]);
-
-        $hasFinishedGame = Game::where('tournament_id', $tournament->id)
-            ->where('round', $round)
-            ->whereNotNull('winner_id')
+        $unfinished = Game::where('tournament_id', $tournament->id)
+            ->whereNotNull('group_id')
+            ->whereNull('winner_id')
             ->exists();
 
-        if ($hasFinishedGame) {
-            return back()
-                ->with('error', 'Best-of kann nicht mehr geändert werden.');
+        if ($unfinished) {
+            return back()->with(
+                'error',
+                'Nicht alle Gruppenspiele sind abgeschlossen.'
+            );
         }
 
-        Game::where('tournament_id', $tournament->id)
-            ->where('round', $round)
-            ->update([
-                'best_of' => $validated['best_of']
-            ]);
-
-        return back();
+        return $this->startKo($tournament);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KO aus Gruppen generieren
+    |--------------------------------------------------------------------------
+    */
 
     public function startKo(Tournament $tournament)
     {
@@ -311,7 +341,7 @@ class TournamentController extends Controller
         }
 
         app(KnockoutGenerator::class)
-            ->generateFromCollection($tournament, $qualified);
+            ->generate($tournament, $qualified);
 
         $tournament->update([
             'status' => 'ko_running'
@@ -321,29 +351,16 @@ class TournamentController extends Controller
             ->route('tournaments.show', $tournament);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Security
+    |--------------------------------------------------------------------------
+    */
+
     private function authorizeTournament(Tournament $tournament)
     {
         if ($tournament->user_id !== auth()->id()) {
             abort(403);
         }
-    }
-    public function finishGroups(Tournament $tournament)
-    {
-        $this->authorizeTournament($tournament);
-
-        // prüfen ob alle Gruppenspiele fertig sind
-        $unfinished = Game::where('tournament_id', $tournament->id)
-            ->whereNotNull('group_id')
-            ->whereNull('winner_id')
-            ->exists();
-
-        if ($unfinished) {
-            return back()->with(
-                'error',
-                'Nicht alle Gruppenspiele sind abgeschlossen.'
-            );
-        }
-
-        return $this->startKo($tournament);
     }
 }

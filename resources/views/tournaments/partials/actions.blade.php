@@ -1,65 +1,76 @@
-<div class="bg-white shadow rounded p-6 mb-6">
+<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
 
-    <h2 class="text-lg font-semibold mb-4">
-        Turnieraktionen
+    <h2 class="text-lg font-semibold mb-4 text-white">
+        Aktionen
     </h2>
 
+    <div class="flex flex-wrap gap-3">
 
-    {{-- Turnier starten --}}
-    @if($tournament->status === 'draft')
+        {{-- DRAFT --}}
+        @if($tournament->status === 'draft')
 
-    <form method="POST"
-        action="{{ route('tournaments.start', $tournament) }}"
-        id="start-form"
-        class="{{ $tournament->players->count() < 2 ? 'hidden' : '' }}">
+        {{-- Auslosen --}}
+        <form method="POST" action="{{ route('tournaments.draw', $tournament) }}">
+            @csrf
+            <button class="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-lg text-white">
+                🎲 Spieler auslosen
+            </button>
+        </form>
 
-        @csrf
+        {{-- Starten --}}
+        @if($tournament->players->count() >= 2)
+        <form method="POST" action="{{ route('tournaments.start', $tournament) }}">
+            @csrf
+            <button class="bg-green-600 hover:bg-green-500 transition px-4 py-2 rounded-lg text-white">
+                ▶ Turnier starten
+            </button>
+        </form>
+        @else
+        <div class="text-sm text-gray-400 self-center">
+            Mindestens 2 Spieler erforderlich
+        </div>
+        @endif
 
-        <button type="submit"
-            class="bg-blue-600 text-white px-4 py-2 rounded">
-            Turnier starten
-        </button>
-
-    </form>
-
-    @endif
+        @endif
 
 
-    {{-- KO Phase starten --}}
-    @if($tournament->status === 'group_running')
+        {{-- GRUPPENPHASE --}}
+        @if($tournament->status === 'group_running')
 
-    <form method="POST"
-        action="{{ route('tournaments.startKo', $tournament) }}">
+        @php
+        $unfinished = $tournament->games
+        ->whereNotNull('group_id')
+        ->whereNull('winner_id')
+        ->count();
+        @endphp
 
-        @csrf
+        @if($unfinished === 0)
 
-        <button
-            type="submit"
-            class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+        <form method="POST" action="{{ route('tournaments.finishGroups', $tournament) }}">
+            @csrf
+            <button class="bg-purple-600 hover:bg-purple-500 transition px-4 py-2 rounded-lg text-white">
+                🏁 KO-Phase starten
+            </button>
+        </form>
 
-            KO-Phase starten
+        @else
 
-        </button>
+        <div class="text-sm text-gray-400 self-center">
+            Gruppenspiele noch nicht vollständig
+        </div>
 
-    </form>
+        @endif
 
-    @endif
+        @endif
+
+
+        {{-- FINISHED --}}
+        @if($tournament->status === 'finished')
+        <div class="text-green-400 text-sm self-center">
+            Turnier abgeschlossen
+        </div>
+        @endif
+
+    </div>
 
 </div>
-@push('scripts')
-<script>
-    document.addEventListener('player-added', function() {
-
-        const startForm = document.getElementById('start-form');
-        if (!startForm) return;
-
-        const playerRows =
-            document.querySelectorAll('.player-row');
-
-        if (playerRows.length >= 2) {
-            startForm.classList.remove('hidden');
-        }
-
-    });
-</script>
-@endpush

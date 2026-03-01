@@ -33,3 +33,34 @@
     height: 100%;
     border-right: 1px solid #4b5563;
 }
+
+.bracket-round {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+}
+
+.bracket-match {
+    position: relative;
+}
+
+.bracket-match::after {
+    content: "";
+    position: absolute;
+    right: -40px;
+    top: 50%;
+    width: 40px;
+    height: 2px;
+    background: #4b5563;
+}
+
+.bracket-round:not(:last-child) .bracket-match:nth-child(odd)::before {
+    content: "";
+    position: absolute;
+    right: -40px;
+    top: 50%;
+    height: calc(100% + 4rem);
+    width: 2px;
+    background: #4b5563;
+}

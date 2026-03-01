@@ -20,6 +20,8 @@ class GroupTableCalculator
                 ->whereNotNull('winner_id')
                 ->get();
 
+            $wins = 0;
+            $losses = 0;
             $points = 0;
             $difference = 0;
 
@@ -27,12 +29,18 @@ class GroupTableCalculator
 
                 $isWinner = $game->winner_id === $player->id;
 
-                // 1 Punkt pro Match-Sieg
                 if ($isWinner) {
-                    $points++;
+                    $wins++;
+                    $points++; // 1 Punkt pro Sieg
+                } else {
+                    $losses++;
                 }
 
-                // 🔥 Fall 1: Best of 1
+                /*
+                |--------------------------------------------------------------------------
+                | Best of 1
+                |--------------------------------------------------------------------------
+                */
                 if ($game->best_of == 1) {
 
                     $rest = $game->loser_rest ?? 0;
@@ -44,8 +52,11 @@ class GroupTableCalculator
                     }
                 }
 
-                // 🔥 Fall 2: Best of > 1
-                else {
+                /*
+                |--------------------------------------------------------------------------
+                | Best of > 1
+                |--------------------------------------------------------------------------
+                */ else {
 
                     if ($game->player1_id === $player->id) {
                         $diff = $game->player1_score - $game->player2_score;
@@ -59,12 +70,19 @@ class GroupTableCalculator
 
             $table[] = [
                 'player' => $player,
+                'played' => $wins + $losses,
+                'wins' => $wins,
+                'losses' => $losses,
                 'points' => $points,
                 'difference' => $difference,
             ];
         }
 
-        // Sortierung
+        /*
+        |--------------------------------------------------------------------------
+        | Sortierung
+        |--------------------------------------------------------------------------
+        */
         usort($table, function ($a, $b) {
 
             if ($a['points'] !== $b['points']) {

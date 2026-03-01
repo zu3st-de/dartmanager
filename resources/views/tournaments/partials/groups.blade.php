@@ -1,127 +1,172 @@
-@if($tournament->status === 'group_running' || $tournament->status === 'ko_running')
+@if($tournament->status === 'group_running')
 
-<div class="bg-white shadow rounded p-6 mb-6">
+<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
 
-    <h2 class="text-lg font-semibold mb-6">
+    <h2 class="text-lg font-semibold mb-6 text-white">
         Gruppenphase
     </h2>
 
+    <div class="flex gap-8 flex-wrap">
 
-    @foreach($tournament->groups as $group)
+        @foreach($tournament->groups as $group)
 
-    <div class="mb-8">
-
-        {{-- Gruppenname --}}
-        <h3 class="font-semibold text-md mb-3">
-            Gruppe {{ $group->name }}
-        </h3>
-
-
-        {{-- Tabelle --}}
         @php
         $table = app(\App\Services\GroupTableCalculator::class)
         ->calculate($group);
         @endphp
 
-        <table class="w-full border mb-4">
+        <div class="min-w-[320px]">
 
-            <thead class="bg-gray-100">
+            <h3 class="text-sm text-gray-400 mb-4">
+                Gruppe {{ $group->name }}
+            </h3>
 
-                <tr>
-                    <th class="text-left p-2">#</th>
-                    <th class="text-left p-2">Spieler</th>
-                    <th class="text-left p-2">Punkte</th>
-                    <th class="text-left p-2">Diff</th>
-                </tr>
+            {{-- 📊 TABELLE --}}
+            <div class="mb-6 overflow-x-auto">
+                <table class="w-full text-xs text-gray-300 border border-gray-700 rounded-lg overflow-hidden">
 
-            </thead>
+                    <thead class="bg-gray-800 text-gray-400 uppercase text-[10px] tracking-wider">
+                        <tr>
+                            <th class="px-2 py-2 text-left w-6">#</th>
+                            <th class="px-2 py-2 text-left">Spieler</th>
+                            <th class="px-2 py-2 text-center w-8">Sp</th>
+                            <th class="px-2 py-2 text-center w-8">S</th>
+                            <th class="px-2 py-2 text-center w-8">N</th>
+                            <th class="px-2 py-2 text-center w-10">Diff</th>
+                            <th class="px-2 py-2 text-center w-10">Pkt</th>
+                        </tr>
+                    </thead>
 
-            <tbody>
+                    <tbody>
 
-                @foreach($table as $index => $row)
+                        @foreach($table as $index => $row)
 
-                <tr class="border-t">
+                        @php
+                        $isQualified = $index < $tournament->group_advance_count;
+                            $isFirst = $index === 0;
+                            $diff = $row['difference'];
+                            @endphp
 
-                    <td class="p-2">
-                        {{ $index + 1 }}
-                    </td>
+                            <tr class="
+                            {{ $isQualified ? 'bg-green-600/10' : 'bg-gray-900' }}
+                            hover:bg-gray-800 transition
+                        ">
 
-                    <td class="p-2">
-                        {{ $row['player']->name }}
-                    </td>
+                                {{-- Platz --}}
+                                <td class="px-2 py-2 font-mono
+                                {{ $isFirst ? 'text-yellow-400 font-bold' : '' }}">
+                                    {{ $index + 1 }}
+                                </td>
 
-                    <td class="p-2">
-                        {{ $row['points'] }}
-                    </td>
+                                {{-- Spieler --}}
+                                <td class="px-2 py-2
+                                {{ $isQualified ? 'text-green-400' : '' }}">
+                                    @if($isFirst) 🥇 @endif
+                                    {{ $row['player']->name }}
+                                </td>
 
-                    <td class="p-2">
-                        {{ $row['difference'] }}
-                    </td>
+                                <td class="px-2 py-2 text-center">
+                                    {{ $row['played'] }}
+                                </td>
 
-                </tr>
+                                <td class="px-2 py-2 text-center text-green-400">
+                                    {{ $row['wins'] }}
+                                </td>
 
-                @endforeach
+                                <td class="px-2 py-2 text-center text-red-400">
+                                    {{ $row['losses'] }}
+                                </td>
 
-            </tbody>
+                                {{-- Diff farbig --}}
+                                <td class="px-2 py-2 text-center font-mono
+                                {{ $diff > 0 ? 'text-green-400' : ($diff < 0 ? 'text-red-400' : 'text-gray-400') }}">
+                                    {{ $diff > 0 ? '+' : '' }}{{ $diff }}
+                                </td>
 
-        </table>
+                                {{-- Punkte --}}
+                                <td class="px-2 py-2 text-center font-bold
+                                {{ $isQualified ? 'text-green-400' : '' }}">
+                                    {{ $row['points'] }}
+                                </td>
 
+                            </tr>
 
-        {{-- Spiele --}}
-        <div>
+                            @endforeach
 
-            <h4 class="font-medium mb-2">
-                Spiele
-            </h4>
+                    </tbody>
+                </table>
+            </div>
 
+            {{-- 🎯 GRUPPENSPIELE --}}
             @foreach($group->games as $game)
 
-            <div class="flex justify-between items-center border rounded px-3 py-2 mb-2">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 shadow mb-4">
 
-                <div>
+                @if(!$game->winner_id)
 
-                    {{ $game->player1->name ?? '?' }}
-                    vs
-                    {{ $game->player2->name ?? '?' }}
+                <form method="POST"
+                    action="{{ route('games.updateScore', $game) }}"
+                    class="space-y-3">
 
-                </div>
+                    @csrf
 
-
-                {{-- Ergebnis --}}
-                <div>
-
-                    @if($game->winner_id)
-
-                    {{ $game->player1_score }}
-                    :
-                    {{ $game->player2_score }}
-
-                    @else
-
-                    <div class="score-form"
-                        data-url="{{ route('games.updateScore', $game) }}">
-
-                        <input type="hidden"
-                            class="csrf-token"
-                            value="{{ csrf_token() }}">
-
+                    <div class="flex justify-between items-center text-sm">
+                        <span>{{ $game->player1->name ?? 'TBD' }}</span>
                         <input type="number"
-                            class="score-input border w-12 text-center"
+                            name="player1_score"
                             min="0"
-                            required>
-
-                        :
-
-                        <input type="number"
-                            class="score-input border w-12 text-center"
-                            min="0"
-                            required>
-
+                            required
+                            class="w-12 bg-gray-900 border border-gray-700 rounded text-center text-white">
                     </div>
 
-                    @endif
+                    <div class="flex justify-between items-center text-sm">
+                        <span>{{ $game->player2->name ?? 'TBD' }}</span>
+                        <input type="number"
+                            name="player2_score"
+                            min="0"
+                            required
+                            class="w-12 bg-gray-900 border border-gray-700 rounded text-center text-white">
+                    </div>
+                    <button type="submit" class="hidden"></button>
+
+                </form>
+
+                @else
+
+                @php
+                $p1Winner = (int)$game->winner_id === (int)$game->player1_id;
+                $p2Winner = (int)$game->winner_id === (int)$game->player2_id;
+                @endphp
+
+                <div class="space-y-2 text-sm">
+
+                    <div class="flex justify-between items-center px-3 py-2 rounded
+                        {{ $p1Winner ? 'bg-green-600/20 border border-green-500/40' : 'bg-gray-900 border border-gray-700 opacity-70' }}">
+
+                        <span class="{{ $p1Winner ? 'text-green-400 font-semibold' : 'text-gray-400' }}">
+                            {{ $game->player1->name ?? 'TBD' }}
+                        </span>
+
+                        <span class="font-mono">
+                            {{ $game->player1_score ?? '-' }}
+                        </span>
+                    </div>
+
+                    <div class="flex justify-between items-center px-3 py-2 rounded
+                        {{ $p2Winner ? 'bg-green-600/20 border border-green-500/40' : 'bg-gray-900 border border-gray-700 opacity-70' }}">
+
+                        <span class="{{ $p2Winner ? 'text-green-400 font-semibold' : 'text-gray-400' }}">
+                            {{ $game->player2->name ?? 'TBD' }}
+                        </span>
+
+                        <span class="font-mono">
+                            {{ $game->player2_score ?? '-' }}
+                        </span>
+                    </div>
 
                 </div>
+
+                @endif
 
             </div>
 
@@ -129,75 +174,10 @@
 
         </div>
 
+        @endforeach
+
     </div>
 
-    @endforeach
-    @if($tournament->status === 'group_running')
-
-    <form method="POST"
-        action="{{ route('tournaments.finishGroups', $tournament) }}"
-        class="mt-6">
-
-        @csrf
-
-        <button
-            class="bg-green-600 text-white px-4 py-2 rounded">
-
-            Gruppenphase abschließen & KO starten
-
-        </button>
-
-    </form>
-
-    @endif
-
 </div>
-@push('scripts')
-<script>
-    document.addEventListener('keydown', async function(e) {
-
-        if (e.key !== 'Enter') return;
-
-        const input = e.target;
-
-        if (!input.classList.contains('score-input')) return;
-
-        e.preventDefault();
-
-        const form = input.closest('.score-form');
-        if (!form) return;
-
-        const inputs = form.querySelectorAll('.score-input');
-
-        if (!inputs[0].value || !inputs[1].value) return;
-
-        const formData = new FormData();
-        formData.append('_token',
-            form.querySelector('.csrf-token').value);
-        formData.append('player1_score', inputs[0].value);
-        formData.append('player2_score', inputs[1].value);
-
-        await fetch(form.dataset.url, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: formData
-        });
-
-        const forms =
-            Array.from(document.querySelectorAll('.score-form'));
-
-        const index = forms.indexOf(form);
-        const next = forms[index + 1];
-
-        if (next) {
-            next.querySelector('.score-input').focus();
-        }
-
-    });
-</script>
-@endpush
 
 @endif

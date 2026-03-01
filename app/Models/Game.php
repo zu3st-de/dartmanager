@@ -17,6 +17,7 @@ class Game extends Model
         'best_of',
         'player1_score',
         'player2_score',
+        'is_third_place',
     ];
 
     public function tournament()
