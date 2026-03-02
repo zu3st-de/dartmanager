@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Tournament;
 use App\Models\Game;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Services\KnockoutGenerator;
 use App\Services\TournamentEngine;
 use App\Services\GroupGenerator;
 use App\Services\GroupTableCalculator;
+
 
 class TournamentController extends Controller
 {
@@ -166,26 +168,26 @@ class TournamentController extends Controller
     | Spieler auslosen (Seed setzen)
     |--------------------------------------------------------------------------
     */
-
     public function draw(Tournament $tournament)
     {
-        $this->authorizeTournament($tournament);
-
         if ($tournament->status !== 'draft') {
-            abort(400);
+            return back()->with('error', 'Auslosung nur im Entwurfsmodus möglich.');
         }
+        DB::transaction(function () use ($tournament) {
 
-        $players = $tournament->players()
-            ->inRandomOrder()
-            ->get();
+            $players = $tournament->players()
+                ->inRandomOrder()
+                ->lockForUpdate()
+                ->get();
 
-        foreach ($players as $index => $player) {
-            $player->update([
-                'seed' => $index + 1
-            ]);
-        }
+            foreach ($players as $index => $player) {
+                $player->update([
+                    'seed' => $index + 1
+                ]);
+            }
+        });
 
-        return back();
+        return back()->with('success', 'Auslosung durchgeführt.');
     }
 
     /*

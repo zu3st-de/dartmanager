@@ -32,7 +32,16 @@
         @endif
 
         @endif
-
+        {{-- Spieler anzeigen --}}
+        @if($tournament->status !== 'draft')
+        <button
+            type="button"
+            @click="showPlayers = !showPlayers"
+            class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">
+            <span x-show="!showPlayers">Spieler anzeigen</span>
+            <span x-show="showPlayers">Spieler ausblenden</span>
+        </button>
+        @endif
 
         {{-- GRUPPENPHASE --}}
         @if($tournament->status === 'group_running')

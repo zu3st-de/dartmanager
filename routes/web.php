@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\PlayerController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -86,6 +87,16 @@ Route::middleware('auth')->group(function () {
         '/tournaments/{tournament}/round/{round}/best-of',
         [TournamentController::class, 'updateRoundBestOf']
     )->name('tournaments.updateRoundBestOf');
+    Route::patch(
+        '/players/{player}',
+        [PlayerController::class, 'update']
+    )
+        ->name('players.update');
+    Route::delete(
+        '/players/{player}',
+        [PlayerController::class, 'destroy']
+    )
+        ->name('players.destroy');
 });
 
 

@@ -27,8 +27,10 @@
 
         </div>
 
-        @include('tournaments.partials.players')
-        @include('tournaments.partials.actions')
+        <div x-data="{ showPlayers: {{ $tournament->status === 'draft' ? 'true' : 'false' }} }">
+            @include('tournaments.partials.actions')
+            @include('tournaments.partials.players')
+        </div>
         @include('tournaments.partials.groups')
         @include('tournaments.partials.knockout')
         @include('tournaments.partials.winner')
