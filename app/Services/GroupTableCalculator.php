@@ -38,33 +38,31 @@ class GroupTableCalculator
 
                 /*
                 |--------------------------------------------------------------------------
-                | Best of 1
+                | Best Of 1
                 |--------------------------------------------------------------------------
                 */
                 if ($game->best_of == 1) {
 
-                    $rest = $game->loser_rest ?? 0;
+                    $rest = $game->winning_rest ?? 0;
 
                     if ($isWinner) {
                         $difference += $rest;
                     } else {
                         $difference -= $rest;
                     }
-                }
 
-                /*
+                    /*
                 |--------------------------------------------------------------------------
-                | Best of > 1
+                | Best Of > 1
                 |--------------------------------------------------------------------------
-                */ else {
+                */
+                } else {
 
-                    if ($game->player1_id === $player->id) {
-                        $diff = $game->player1_score - $game->player2_score;
+                    if ($player->id == $game->player1_id) {
+                        $difference += $game->player1_score - $game->player2_score;
                     } else {
-                        $diff = $game->player2_score - $game->player1_score;
+                        $difference += $game->player2_score - $game->player1_score;
                     }
-
-                    $difference += $diff;
                 }
             }
 

@@ -2,9 +2,39 @@
 
 <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
 
-    <h2 class="text-lg font-semibold mb-6 text-white">
-        Gruppenphase
-    </h2>
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold">
+            Gruppenphase
+        </h2>
+
+        <form method="POST"
+            action="{{ route('tournaments.updateGroupBestOf', $tournament) }}">
+            @csrf
+            @method('PATCH')
+
+            <select name="group_best_of"
+                onchange="this.form.submit()"
+                @if($groupHasResults) disabled @endif
+                class="bg-gray-800 text-xs rounded border border-gray-700 
+               text-emerald-400 px-2 py-1 
+               focus:outline-none focus:ring-1 focus:ring-emerald-500
+               disabled:opacity-50 disabled:cursor-not-allowed">
+                @foreach([1,3,5,7] as $value)
+                <option value="{{ $value }}"
+                    {{ $groupBestOf == $value ? 'selected' : '' }}>
+                    Bo{{ $value }}
+                </option>
+                @endforeach
+
+            </select>
+            @if($groupHasResults)
+            <span class="text-xs text-red-400 ml-2">
+                gesperrt – Spiele bereits eingetragen
+            </span>
+            @endif
+        </form>
+
+    </div>
 
     <div class="flex gap-8 flex-wrap">
 
@@ -127,6 +157,19 @@
                             required
                             class="w-12 bg-gray-900 border border-gray-700 rounded text-center text-white">
                     </div>
+
+                    @if($game->best_of == 1)
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-400">Rest</span>
+                        <input type="number"
+                            name="winning_rest"
+                            value="{{ $game->winning_rest }}"
+                            min="0"
+                            max="501"
+                            class="w-20 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-center">
+                    </div>
+                    @endif
+
                     <button type="submit" class="hidden"></button>
 
                 </form>

@@ -78,6 +78,14 @@ Route::middleware('auth')->group(function () {
         [TournamentController::class, 'finishGroups']
     )
         ->name('tournaments.finishGroups');
+    Route::patch(
+        '/tournaments/{tournament}/group-best-of',
+        [TournamentController::class, 'updateGroupBestOf']
+    )->name('tournaments.updateGroupBestOf');
+    Route::patch(
+        '/tournaments/{tournament}/round/{round}/best-of',
+        [TournamentController::class, 'updateRoundBestOf']
+    )->name('tournaments.updateRoundBestOf');
 });
 
 

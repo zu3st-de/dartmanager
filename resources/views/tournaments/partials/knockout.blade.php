@@ -2,204 +2,274 @@
 
 @php
 
-function roundName($round, $finalRound) {
-$remainingRounds = $finalRound - $round + 1;
+function roundName($round, $mainRounds)
+{
+// Erste Runde ermitteln
+$firstRound = $mainRounds->first();
+$gamesFirstRound = $firstRound ? $firstRound->count() : 0;
 
-return match($remainingRounds) {
-1 => 'Finale',
-2 => 'Halbfinale',
-3 => 'Viertelfinale',
-4 => 'Achtelfinale',
-default => 'Runde '.$round,
-};
-}
+// Teilnehmerzahl berechnen
+$totalPlayers = $gamesFirstRound * 2;
 
-$games = $tournament->games->whereNull('group_id');
+if ($totalPlayers <= 1) {
+    return 'Finale' ;
+    }
 
-$mainRounds = $games
-->where('is_third_place', false)
-->groupBy('round')
-->sortKeys();
+    // Gesamtanzahl Runden im Baum
+    $totalRounds=(int) log($totalPlayers, 2);
 
-$thirdPlaceGame = $games->firstWhere('is_third_place', true);
+    // Wie viele Runden sind noch übrig?
+    $roundsLeft=$totalRounds - $round + 1;
 
-$roundWidth = 260;
-$matchHeight = 160;
-$verticalSpacing = 40;
+    return match ($roundsLeft) {
+    1=> 'Finale',
+    2 => 'Halbfinale',
+    3 => 'Viertelfinale',
+    4 => 'Achtelfinale',
+    5 => 'Sechzehntelfinale',
+    6 => 'Zweiunddreißigstelfinale',
+    default => 'Runde ' . $round,
+    };
+    }
 
-$finalRound = $mainRounds->keys()->max();
-$finalGame = $mainRounds[$finalRound]->first();
-$championId = ($finalGame && $finalGame->winner_id) ? $finalGame->winner_id : null;
+    $games = $tournament->games->whereNull('group_id');
 
-$positions = [];
-$svgLines = [];
-$finalY = null;
+    $mainRounds = $games
+    ->where('is_third_place', false)
+    ->groupBy('round')
+    ->sortKeys();
 
-$totalFirstRound = $mainRounds[1]->count();
-$bracketHeight = $totalFirstRound * ($matchHeight + $verticalSpacing);
+    $thirdPlaceGame = $games->firstWhere('is_third_place', true);
 
-/*
-|--------------------------------------------------------------------------
-| POSITION & LINES
-|--------------------------------------------------------------------------
-*/
+    $headerOffset = 130;
+    $roundWidth = 260;
+    $matchHeight = 160;
+    $verticalSpacing = 40;
 
-foreach ($mainRounds as $round => $roundGames) {
+    $finalRound = $mainRounds->keys()->max();
+    $finalGame = $mainRounds[$finalRound]->first();
+    $championId = ($finalGame && $finalGame->winner_id) ? $finalGame->winner_id : null;
 
-$roundGames = $roundGames->sortBy('position')->values();
-$roundIndex = $round - 1;
+    $positions = [];
+    $svgLines = [];
+    $finalY = null;
 
-foreach ($roundGames as $i => $game) {
+    $totalFirstRound = $mainRounds[1]->count();
+    $bracketHeight = $totalFirstRound * ($matchHeight + $verticalSpacing);
 
-if ($round == 1) {
-$y = $i * ($matchHeight + $verticalSpacing) + 60;
-} else {
-$prev1 = $positions[$round-1][$i*2] ?? 0;
-$prev2 = $positions[$round-1][$i*2+1] ?? 0;
-$y = ($prev1 + $prev2) / 2;
-}
+    /*
+    |--------------------------------------------------------------------------
+    | POSITION & LINES
+    |--------------------------------------------------------------------------
+    */
 
-$positions[$round][$i] = $y;
+    foreach ($mainRounds as $round => $roundGames) {
 
-if ($round === $finalRound) {
-$finalY = $y;
-}
+    $roundGames = $roundGames->sortBy('position')->values();
+    $roundIndex = $round - 1;
 
-if ($round > 1) {
+    foreach ($roundGames as $i => $game) {
 
-$xStart = ($roundIndex - 1) * $roundWidth + 200;
-$xEnd = $roundIndex * $roundWidth;
+    if ($round == 1) {
+    $y = $i * ($matchHeight + $verticalSpacing) + $headerOffset;
+    } else {
+    $prev1 = $positions[$round-1][$i*2] ?? 0;
+    $prev2 = $positions[$round-1][$i*2+1] ?? 0;
+    $y = ($prev1 + $prev2) / 2;
+    }
 
-$prevGames = $mainRounds[$round-1]->sortBy('position')->values();
-$prevGame1 = $prevGames[$i*2] ?? null;
-$prevGame2 = $prevGames[$i*2+1] ?? null;
+    $positions[$round][$i] = $y;
 
-$prev1 = $positions[$round-1][$i*2] ?? 0;
-$prev2 = $positions[$round-1][$i*2+1] ?? 0;
+    if ($round === $finalRound) {
+    $finalY = $y;
+    }
 
-$topChampion = $championId && $prevGame1 && $prevGame1->winner_id === $championId;
-$bottomChampion = $championId && $prevGame2 && $prevGame2->winner_id === $championId;
+    if ($round > 1) {
 
-$mid = ($prev1 + $prev2) / 2;
+    $xStart = ($roundIndex - 1) * $roundWidth + 200;
+    $xEnd = $roundIndex * $roundWidth;
 
-$svgLines[] = ['x1'=>$xStart,'y1'=>$prev1,'x2'=>$xStart+30,'y2'=>$prev1,'color'=>$topChampion ? '#22c55e' : '#4b5563'];
-$svgLines[] = ['x1'=>$xStart,'y1'=>$prev2,'x2'=>$xStart+30,'y2'=>$prev2,'color'=>$bottomChampion ? '#22c55e' : '#4b5563'];
+    $prevGames = $mainRounds[$round-1]->sortBy('position')->values();
+    $prevGame1 = $prevGames[$i*2] ?? null;
+    $prevGame2 = $prevGames[$i*2+1] ?? null;
 
-$svgLines[] = ['x1'=>$xStart+30,'y1'=>$prev1,'x2'=>$xStart+30,'y2'=>$mid,'color'=>$topChampion ? '#22c55e' : '#4b5563'];
-$svgLines[] = ['x1'=>$xStart+30,'y1'=>$mid,'x2'=>$xStart+30,'y2'=>$prev2,'color'=>$bottomChampion ? '#22c55e' : '#4b5563'];
+    $prev1 = $positions[$round-1][$i*2] ?? 0;
+    $prev2 = $positions[$round-1][$i*2+1] ?? 0;
 
-$currentChampion = $championId && $game->winner_id === $championId;
+    $topChampion = $championId && $prevGame1 && $prevGame1->winner_id === $championId;
+    $bottomChampion = $championId && $prevGame2 && $prevGame2->winner_id === $championId;
 
-$svgLines[] = ['x1'=>$xStart+30,'y1'=>$y,'x2'=>$xEnd,'y2'=>$y,'color'=>$currentChampion ? '#22c55e' : '#4b5563'];
-}
-}
-}
-@endphp
+    $mid = ($prev1 + $prev2) / 2;
+
+    $svgLines[] = ['x1'=>$xStart,'y1'=>$prev1,'x2'=>$xStart+30,'y2'=>$prev1,'color'=>$topChampion ? '#22c55e' : '#4b5563'];
+    $svgLines[] = ['x1'=>$xStart,'y1'=>$prev2,'x2'=>$xStart+30,'y2'=>$prev2,'color'=>$bottomChampion ? '#22c55e' : '#4b5563'];
+
+    $svgLines[] = ['x1'=>$xStart+30,'y1'=>$prev1,'x2'=>$xStart+30,'y2'=>$mid,'color'=>$topChampion ? '#22c55e' : '#4b5563'];
+    $svgLines[] = ['x1'=>$xStart+30,'y1'=>$mid,'x2'=>$xStart+30,'y2'=>$prev2,'color'=>$bottomChampion ? '#22c55e' : '#4b5563'];
+
+    $currentChampion = $championId && $game->winner_id === $championId;
+
+    $svgLines[] = ['x1'=>$xStart+30,'y1'=>$y,'x2'=>$xEnd,'y2'=>$y,'color'=>$currentChampion ? '#22c55e' : '#4b5563'];
+    }
+    }
+    }
+    @endphp
 
 
-<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg overflow-x-auto">
-    <h2 class="text-lg font-semibold mb-6 text-white">
-        KO-Bracket
-    </h2>
-    {{-- 🔥 Zentrierungs-Wrapper --}}
-    <div class="flex justify-center">
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg overflow-x-auto">
+        <h2 class="text-lg font-semibold mb-6 text-white">
+            KO-Bracket
+        </h2>
+        {{-- 🔥 Zentrierungs-Wrapper --}}
+        <div class="flex justify-center">
 
-        <div class="relative"
-            style="min-width: {{ count($mainRounds) * $roundWidth }}px;
-                    min-height: {{ $bracketHeight + 200 }}px;">
+            <div class="relative"
+                style="min-width: {{ count($mainRounds) * $roundWidth }}px;
+                    min-height: {{ $bracketHeight + $headerOffset + 200 }}px;">
 
-            {{-- SVG --}}
-            <svg class="absolute top-0 left-0 w-full h-full pointer-events-none">
-                @foreach($svgLines as $line)
-                <line
-                    x1="{{ $line['x1'] }}"
-                    y1="{{ $line['y1'] }}"
-                    x2="{{ $line['x2'] }}"
-                    y2="{{ $line['y2'] }}"
-                    stroke="{{ $line['color'] }}"
-                    stroke-width="{{ $line['color'] === '#22c55e' ? 3 : 2 }}" />
-                @endforeach
-            </svg>
+                {{-- SVG --}}
+                <svg class="absolute top-0 left-0 w-full h-full pointer-events-none"> @foreach($svgLines as $line)
+                    <line
+                        x1="{{ $line['x1'] }}"
+                        y1="{{ $line['y1'] }}"
+                        x2="{{ $line['x2'] }}"
+                        y2="{{ $line['y2'] }}"
+                        stroke="{{ $line['color'] }}"
+                        stroke-width="{{ $line['color'] === '#22c55e' ? 3 : 2 }}" />
+                    @endforeach
+                </svg>
 
-            {{-- MATCHES --}}
-            @foreach($mainRounds as $round => $roundGames)
+                {{-- MATCHES --}}
+                @foreach($mainRounds as $round => $roundGames)
 
-            @php
-            $roundGames = $roundGames->sortBy('position')->values();
-            $roundIndex = $round - 1;
-            $x = $roundIndex * $roundWidth;
-            @endphp
+                @php
+                $roundGames = $roundGames->sortBy('position')->values();
+                $currentBestOf = $roundGames->first()?->best_of;
+                $roundIndex = $round - 1;
+                $x = $roundIndex * $roundWidth;
+                @endphp
 
-            {{-- RUNDENÜBERSCHRIFT --}}
-            <div class="absolute text-center text-gray-400 text-sm font-semibold"
-                style="left: {{ $x }}px;
+                {{-- RUNDENÜBERSCHRIFT --}}
+                <div class="absolute text-center text-gray-400 text-sm font-semibold"
+                    style="left: {{ $x }}px;
                 top: 0px;
                 width: 240px;">
-                {{ roundName($round, $finalRound) }}
-            </div>
+                    {{ roundName($round, $mainRounds) }}
+                    <form method="POST"
+                        action="{{ route('tournaments.updateRoundBestOf', [$tournament, $round]) }}">
+                        @csrf
+                        @method('PATCH')
 
-            @php
-            $roundGames = $roundGames->sortBy('position')->values();
-            $roundIndex = $round - 1;
-            @endphp
+                        <select name="best_of"
+                            onchange="this.form.submit()"
+                            class="mt-1 w-20 text-xs font-semibold
+               bg-gray-800 text-emerald-400
+               border border-gray-700
+               rounded-md px-2 py-1
+               focus:outline-none focus:ring-2 focus:ring-emerald-500
+               transition">
+                            @foreach([1,3,5,7,9] as $value)
+                            <option value="{{ $value }}"
+                                {{ $currentBestOf == $value ? 'selected' : '' }}>
+                                Bo{{ $value }}
+                            </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
 
-            @foreach($roundGames as $i => $game)
+                @php
+                $roundGames = $roundGames->sortBy('position')->values();
+                $roundIndex = $round - 1;
+                @endphp
 
-            @php
-            $y = $positions[$round][$i];
-            $x = $roundIndex * $roundWidth;
-            @endphp
+                @foreach($roundGames as $i => $game)
 
-            <div class="absolute"
-                style="left: {{ $x }}px;
+                @php
+                $y = $positions[$round][$i];
+                $x = $roundIndex * $roundWidth;
+                @endphp
+
+                <div class="absolute"
+                    style="left: {{ $x }}px;
                             top: {{ $y - ($matchHeight / 2) }}px;
                             width: 240px;">
 
-                @include('tournaments.partials._ko_game', [
-                'game' => $game,
-                'tournament' => $tournament,
-                'maxRound' => $finalRound
-                ])
+                    @include('tournaments.partials._ko_game', [
+                    'game' => $game,
+                    'tournament' => $tournament,
+                    'maxRound' => $finalRound
+                    ])
 
-            </div>
+                </div>
 
-            @endforeach
-            @endforeach
+                @endforeach
+                @endforeach
 
-            {{-- Platz 3 --}}
-            @if($thirdPlaceGame && $finalY !== null)
+                {{-- Platz 3 --}}
+                @if($thirdPlaceGame && $finalY !== null)
 
-            @php
-            $thirdY = $finalY + $matchHeight + 60;
-            $thirdX = ($finalRound - 1) * $roundWidth + 20;
-            @endphp
+                @php
+                $thirdY = $finalY + $matchHeight + 80;
+                $thirdX = ($finalRound - 1) * $roundWidth + 20;
+                @endphp
 
-            {{-- Überschrift Platz 3 --}}
-            <div class="absolute text-center text-amber-400 text-sm font-semibold"
-                style="left: {{ $thirdX }}px;
-                top: {{ $thirdY - $matchHeight + 50 }}px;
+                {{-- Überschrift Platz 3 --}}
+                <div class="absolute text-center text-amber-400 text-sm font-semibold"
+                    style="left: {{ $thirdX }}px;
+                top: {{ $thirdY - $matchHeight + 30 }}px;
                 width: 240px;">
-                Spiel um Platz 3
-            </div>
+                    Spiel um Platz 3
+                    <form method="POST"
+                        action="{{ route('tournaments.updateRoundBestOf', [$tournament, $finalRound]) }}">
+                        @csrf
+                        @method('PATCH')
 
-            <div class="absolute"
-                style="left: {{ $thirdX }}px;
+                        <input type="hidden" name="is_third_place" value="1">
+
+                        @php
+                        $thirdBestOf = $thirdPlaceGame?->best_of;
+                        $hasResults = $thirdPlaceGame && $thirdPlaceGame->winner_id;
+                        @endphp
+
+                        <select name="best_of"
+                            onchange="this.form.submit()"
+                            {{ $hasResults ? 'disabled' : '' }}
+                            class="mt-1 w-20 text-xs font-semibold
+                   bg-gray-800 text-amber-400
+                   border border-gray-700
+                   rounded-md px-2 py-1
+                   focus:outline-none focus:ring-2 focus:ring-amber-500
+                   transition">
+
+                            @foreach([1,3,5,7,9] as $value)
+                            <option value="{{ $value }}"
+                                {{ $thirdBestOf == $value ? 'selected' : '' }}>
+                                Bo{{ $value }}
+                            </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
+
+                <div class="absolute"
+                    style="left: {{ $thirdX }}px;
                 top: {{ $thirdY - ($matchHeight / 2) }}px;
                 width: 240px;">
 
-                @include('tournaments.partials._ko_game', [
-                'game' => $thirdPlaceGame,
-                'tournament' => $tournament,
-                'maxRound' => $finalRound
-                ])
+                    @include('tournaments.partials._ko_game', [
+                    'game' => $thirdPlaceGame,
+                    'tournament' => $tournament,
+                    'maxRound' => $finalRound
+                    ])
+
+                </div>
+
+                @endif
 
             </div>
-
-            @endif
 
         </div>
 
     </div>
-
-</div>
-@endif
+    @endif

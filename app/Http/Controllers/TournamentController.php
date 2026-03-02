@@ -107,7 +107,26 @@ class TournamentController extends Controller
             'games.player2',
         ]);
 
-        return view('tournaments.show', compact('tournament'));
+        $koRounds = $tournament->games()
+            ->where('round', '>', 0)
+            ->where('is_third_place', false)
+            ->select('round')
+            ->distinct()
+            ->orderBy('round')
+            ->pluck('round');
+
+        $groupGames = $tournament->games()
+            ->where('round', 0);
+
+        $groupBestOf = $groupGames->value('best_of');
+
+        $groupHasResults = $groupGames
+            ->where(function ($q) {
+                $q->whereNotNull('winner_id');
+            })
+            ->exists();
+
+        return view('tournaments.show', compact('tournament', 'groupBestOf', 'groupHasResults', 'koRounds'));
     }
 
     /*
@@ -232,6 +251,7 @@ class TournamentController extends Controller
         $tournament = $game->tournament;
         $this->authorizeTournament($tournament);
 
+        // Spiel bereits entschieden?
         if ($game->winner_id) {
 
             if ($request->expectsJson()) {
@@ -244,24 +264,63 @@ class TournamentController extends Controller
             return back();
         }
 
+        // Grundvalidierung
         $validated = $request->validate([
             'player1_score' => 'required|integer|min:0',
             'player2_score' => 'required|integer|min:0',
+            'winning_rest'  => 'nullable|integer|min:0|max:501',
         ]);
+
+        $player1Score = (int) $validated['player1_score'];
+        $player2Score = (int) $validated['player2_score'];
+        $winningRest  = $validated['winning_rest'] ?? null;
+
+        /*
+    |--------------------------------------------------------------------------
+    | Zentrale Best-Of Validierung (im Model!)
+    |--------------------------------------------------------------------------
+    */
+
+        $game->validateResult(
+            $player1Score,
+            $player2Score,
+            $winningRest
+        );
+
+        /*
+    |--------------------------------------------------------------------------
+    | Scores speichern
+    |--------------------------------------------------------------------------
+    */
 
         $game->update([
-            'player1_score' => $validated['player1_score'],
-            'player2_score' => $validated['player2_score'],
+            'player1_score' => $player1Score,
+            'player2_score' => $player2Score,
+            'winning_rest'  => ($game->best_of == 1 && $game->group_id !== null)
+                ? $winningRest
+                : null,
         ]);
 
-        $firstTo = ceil($game->best_of / 2);
+        /*
+    |--------------------------------------------------------------------------
+    | Gewinner ermitteln
+    |--------------------------------------------------------------------------
+    */
+
+        $firstTo = (int) ceil($game->best_of / 2);
         $winnerId = null;
 
-        if ($game->player1_score >= $firstTo) {
+        if ($player1Score >= $firstTo) {
             $winnerId = $game->player1_id;
-        } elseif ($game->player2_score >= $firstTo) {
+        } elseif ($player2Score >= $firstTo) {
             $winnerId = $game->player2_id;
         }
+
+        /*
+    |--------------------------------------------------------------------------
+    | KO-Engine ausführen
+    |--------------------------------------------------------------------------
+    */
 
         if ($winnerId) {
             app(TournamentEngine::class)
@@ -269,6 +328,12 @@ class TournamentController extends Controller
         }
 
         $game->refresh();
+
+        /*
+    |--------------------------------------------------------------------------
+    | Response
+    |--------------------------------------------------------------------------
+    */
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -282,7 +347,74 @@ class TournamentController extends Controller
 
         return back();
     }
+    /*
+    |--------------------------------------------------------------------------
+    | Gruppenphase Best-of aktualisieren
+    |--------------------------------------------------------------------------
+    */
+    public function updateGroupBestOf(Request $request, Tournament $tournament)
+    {
+        $groupHasResults = $tournament->games()
+            ->where('round', 0)
+            ->where(function ($q) {
+                $q->whereNotNull('winner_id');
+            })
+            ->exists();
 
+        if ($groupHasResults) {
+            return back()->with('error', 'Best Of kann nicht mehr geändert werden.');
+        }
+        $request->validate([
+            'group_best_of' => 'required|in:1,3,5,7'
+        ]);
+
+        // Alle Gruppenspiele updaten (round = 0 bei dir)
+        $tournament->games()
+            ->where('round', 0)
+            ->update([
+                'best_of' => $request->group_best_of
+            ]);
+
+        return back();
+    }
+    /*
+    |--------------------------------------------------------------------------
+    | KO-Runde Best-of aktualisieren
+    |--------------------------------------------------------------------------
+    */
+    public function updateRoundBestOf(
+        Request $request,
+        Tournament $tournament,
+        int $round
+    ) {
+        $this->authorizeTournament($tournament);
+
+        $request->validate([
+            'best_of' => 'required|in:1,3,5,7,9',
+            'is_third_place' => 'nullable|boolean'
+        ]);
+
+        $isThirdPlace = (bool) $request->input('is_third_place', false);
+
+        $query = $tournament->games()
+            ->where('round', $round)
+            ->where('is_third_place', $isThirdPlace);
+
+        // 🔥 WICHTIG: clone verwenden
+        $hasResults = (clone $query)
+            ->whereNotNull('winner_id')
+            ->exists();
+
+        if ($hasResults) {
+            return back()->with('error', 'Best Of kann nicht mehr geändert werden.');
+        }
+
+        $query->update([
+            'best_of' => $request->best_of
+        ]);
+
+        return back();
+    }
     /*
     |--------------------------------------------------------------------------
     | Gruppenphase abschließen
