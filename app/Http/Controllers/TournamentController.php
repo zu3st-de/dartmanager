@@ -497,4 +497,120 @@ class TournamentController extends Controller
             abort(403);
         }
     }
+
+    public function reset(Request $request, Tournament $tournament)
+    {
+        // Nur Owner
+        if ($tournament->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        // Name muss exakt passen
+        $request->validate([
+            'confirm_name' => ['required', 'in:' . $tournament->name],
+        ]);
+
+        DB::transaction(function () use ($tournament) {
+
+            // Alle Spiele löschen
+            $tournament->games()->delete();
+
+            // Optional: Gruppen löschen
+            $tournament->groups()->delete();
+
+            // Status zurücksetzen
+            $tournament->update([
+                'status' => 'draft'
+            ]);
+        });
+
+        return redirect()
+            ->route('tournaments.show', $tournament)
+            ->with('success', 'Turnier wurde zurückgesetzt.');
+    }
+
+    public function resetGame(Game $game)
+    {
+        $tournament = $game->tournament;
+
+        if ($tournament->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        DB::transaction(function () use ($game, $tournament) {
+
+            $oldWinnerId = $game->winner_id;
+
+            // 1️⃣ Dieses Spiel zurücksetzen
+            $game->update([
+                'player1_score' => null,
+                'player2_score' => null,
+                'winner_id'     => null,
+                'winning_rest'  => null,
+            ]);
+
+            // 2️⃣ Wenn KO-Spiel → Folge-Spiel berechnen
+            if ($game->group_id === null && $game->round !== null) {
+
+                $nextRound = $game->round + 1;
+                $nextPosition = (int) ceil($game->position / 2);
+
+                $nextGame = Game::where('tournament_id', $tournament->id)
+                    ->where('round', $nextRound)
+                    ->where('position', $nextPosition)
+                    ->first();
+
+                if ($nextGame && $oldWinnerId) {
+
+                    // Entferne Gewinner aus nächstem Spiel
+                    if ($nextGame->player1_id === $oldWinnerId) {
+                        $nextGame->player1_id = null;
+                    }
+
+                    if ($nextGame->player2_id === $oldWinnerId) {
+                        $nextGame->player2_id = null;
+                    }
+
+                    // Falls dadurch unvollständig → Ergebnis löschen
+                    if (!$nextGame->player1_id || !$nextGame->player2_id) {
+                        $nextGame->player1_score = null;
+                        $nextGame->player2_score = null;
+                        $nextGame->winner_id     = null;
+                        $nextGame->winning_rest  = null;
+                    }
+
+                    $nextGame->save();
+                }
+            }
+        });
+
+        return back()->with('success', 'Spiel erfolgreich zurückgesetzt.');
+    }
+
+    public function reopen(Tournament $tournament)
+    {
+        if ($tournament->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        if ($tournament->status !== 'finished') {
+            return back()->with('error', 'Nur abgeschlossene Turniere können wieder geöffnet werden.');
+        }
+
+        // Falls KO existiert → zurück auf KO-Phase
+        if ($tournament->games()->whereNull('group_id')->exists()) {
+            $newStatus = 'ko_running';
+        } else {
+            $newStatus = 'group_running';
+        }
+
+        $tournament->update([
+            'status' => $newStatus,
+        ]);
+        $tournament->update([
+            'winner_id' => null
+        ]);
+
+        return back()->with('success', 'Turnier wurde wieder geöffnet.');
+    }
 }

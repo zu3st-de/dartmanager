@@ -139,7 +139,12 @@
                     class="space-y-3">
 
                     @csrf
-
+                    <div class="flex justify-end mb-2">
+                        <button type="submit"
+                            class="text-green-400 hover:text-green-300 text-sm">
+                            ✅
+                        </button>
+                    </div>
                     <div class="flex justify-between items-center text-sm">
                         <span>{{ $game->player1->name ?? 'TBD' }}</span>
                         <input type="number"
@@ -170,11 +175,22 @@
                     </div>
                     @endif
 
-                    <button type="submit" class="hidden"></button>
-
                 </form>
 
                 @else
+
+                <div class="flex justify-end mb-2">
+                    <form method="POST"
+                        action="{{ route('games.reset', $game) }}"
+                        onsubmit="return confirm('Ergebnis wirklich löschen?');">
+                        @csrf
+                        <button
+                            type="submit"
+                            class="text-red-500 hover:text-red-400 text-xs">
+                            🗑
+                        </button>
+                    </form>
+                </div>
 
                 @php
                 $p1Winner = (int)$game->winner_id === (int)$game->player1_id;

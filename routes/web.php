@@ -97,6 +97,21 @@ Route::middleware('auth')->group(function () {
         [PlayerController::class, 'destroy']
     )
         ->name('players.destroy');
+    Route::post(
+        '/tournaments/{tournament}/reset',
+        [TournamentController::class, 'reset']
+    )
+        ->name('tournaments.reset');
+    Route::post(
+        '/games/{game}/reset',
+        [TournamentController::class, 'resetGame']
+    )
+        ->name('games.reset');
+    Route::post(
+        '/tournaments/{tournament}/reopen',
+        [TournamentController::class, 'reopen']
+    )
+        ->name('tournaments.reopen');
 });
 
 

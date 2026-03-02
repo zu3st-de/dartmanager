@@ -8,7 +8,6 @@
         class="space-y-3">
 
         @csrf
-
         <div class="flex justify-between items-center text-sm">
             <span>{{ $game->player1->name ?? 'TBD' }}</span>
             <input type="number"
@@ -27,13 +26,28 @@
                 class="w-12 bg-gray-900 border border-gray-700 rounded text-center text-white">
         </div>
 
-        <button class="hidden w-full bg-blue-600 hover:bg-blue-500 transition text-white text-xs py-2 rounded">
-            Ergebnis speichern
+        <!-- Submit Button rechts oben -->
+        <button type="submit"
+            class="absolute top-0 right-4 text-green-400 hover:text-green-300 text-sm">
+            ✅
         </button>
 
     </form>
 
     @else
+
+    <div class="flex justify-end mb-2">
+        <form method="POST"
+            action="{{ route('games.reset', $game) }}"
+            onsubmit="return confirm('Ergebnis wirklich löschen?');">
+            @csrf
+            <button
+                type="submit"
+                class="text-red-500 hover:text-red-400 text-xs">
+                🗑
+            </button>
+        </form>
+    </div>
 
     @php
     $isFinal = !$game->is_third_place && $game->round === $maxRound;
