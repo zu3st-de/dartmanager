@@ -39,6 +39,7 @@
                         </button>
 
                         <!-- Delete Button -->
+                        @if($tournament->status === 'draft')
                         <form
                             action="{{ route('players.destroy', $player) }}"
                             method="POST"
@@ -52,6 +53,7 @@
                                 ❌
                             </button>
                         </form>
+                        @endif
 
                     </div>
                 </div>
@@ -90,7 +92,7 @@
             </div>
             @endforeach
         </div>
-
+        @if($tournament->status === 'draft')
         <form id="playerForm"
             data-url="{{ route('tournaments.addPlayer', $tournament) }}"
             class="flex gap-2">
@@ -110,6 +112,6 @@
             </button>
 
         </form>
-
+        @endif
     </div>
 </div>
