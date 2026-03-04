@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\PlayerController;
+use App\Http\Controllers\TvController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -121,6 +122,10 @@ Route::middleware('auth')->group(function () {
         '/tournaments/{tournament}/reset-ko',
         [TournamentController::class, 'resetKo']
     )->name('tournaments.resetKo');
+    Route::get(
+        '/tv/{tournament}',
+        [TvController::class, 'show']
+    )->name('tv.tournament');
 });
 
 
