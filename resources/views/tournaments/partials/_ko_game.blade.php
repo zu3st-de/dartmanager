@@ -5,7 +5,7 @@
 
     <form method="POST"
         action="{{ route('games.updateScore', $game) }}"
-        class="space-y-3">
+        class="space-y-3 simulate-ko-form" data-bestof="{{ $game->best_of }}" data-round="{{ $game->round }}">
 
         @csrf
         <div class="flex justify-between items-center text-sm">

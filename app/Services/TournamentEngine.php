@@ -21,6 +21,7 @@ class TournamentEngine
 
         $tournament = $game->tournament;
         $totalRounds = $this->getTotalRounds($tournament);
+        //dd($totalRounds);
 
         /*
         |--------------------------------------------------------------------------
@@ -39,7 +40,7 @@ class TournamentEngine
         |--------------------------------------------------------------------------
         */
 
-        if ($game->round === $totalRounds) {
+        if ($game->round === $totalRounds && !$game->is_third_place) {
 
             // Kein Platz 3 aktiviert → direkt beenden
             if (!$tournament->has_third_place) {
@@ -50,6 +51,10 @@ class TournamentEngine
             // Platz 3 existiert → prüfen ob auch fertig
             $this->tryFinishTournament($tournament);
             return;
+            $tournament->update([
+                'status' => 'finished',
+                'winner_id' => $winnerId
+            ]);
         }
 
         /*
@@ -59,9 +64,33 @@ class TournamentEngine
         */
 
         $this->advanceWinner($game, $winnerId);
+        if ($tournament->has_third_place) {
 
-        if ($this->shouldCreateThirdPlace($game)) {
-            $this->createThirdPlaceGame($tournament);
+            $totalRounds = $this->getTotalRounds($tournament);
+
+            // Wenn Halbfinale
+            if ($game->round === $totalRounds - 1) {
+
+                $loserId = $game->player1_id == $winnerId
+                    ? $game->player2_id
+                    : $game->player1_id;
+
+                $thirdPlaceGame = Game::where('tournament_id', $tournament->id)
+                    ->where('round', $totalRounds)
+                    ->where('is_third_place', true)
+                    ->first();
+
+                if ($thirdPlaceGame) {
+
+                    if (!$thirdPlaceGame->player1_id) {
+                        $thirdPlaceGame->player1_id = $loserId;
+                    } else {
+                        $thirdPlaceGame->player2_id = $loserId;
+                    }
+
+                    $thirdPlaceGame->save();
+                }
+            }
         }
     }
 
@@ -108,78 +137,37 @@ class TournamentEngine
 
     private function advanceWinner(Game $game, int $winnerId): void
     {
-        $nextRound = $game->round + 1;
-        $nextPosition = ceil($game->position / 2);
-
-        $nextGame = Game::firstOrCreate(
-            [
-                'tournament_id' => $game->tournament_id,
-                'round' => $nextRound,
-                'position' => $nextPosition,
-                'is_third_place' => false
-            ]
-        );
-
-        if ($game->position % 2 === 1) {
-            $nextGame->update(['player1_id' => $winnerId]);
-        } else {
-            $nextGame->update(['player2_id' => $winnerId]);
-        }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Platz-3 Spiel erzeugen (nur nach beiden Halbfinals)
-    |--------------------------------------------------------------------------
-    */
-
-    private function shouldCreateThirdPlace(Game $game): bool
-    {
         $tournament = $game->tournament;
-
-        if (!$tournament->has_third_place) {
-            return false;
-        }
-
         $totalRounds = $this->getTotalRounds($tournament);
 
-        // Nur nach Halbfinale
-        return $game->round === $totalRounds - 1;
-    }
-
-    private function createThirdPlaceGame(Tournament $tournament): void
-    {
-        $totalRounds = $this->getTotalRounds($tournament);
-
-        // Halbfinalspiele
-        $semiFinals = Game::where('tournament_id', $tournament->id)
-            ->where('round', $totalRounds - 1)
-            ->where('is_third_place', false)
-            ->whereNotNull('winner_id')
-            ->get();
-
-        if ($semiFinals->count() !== 2) {
+        // Finale? → nichts weiterleiten
+        if ($game->round >= $totalRounds) {
             return;
         }
 
-        $losers = $semiFinals->map(function ($g) {
-            return $g->winner_id === $g->player1_id
-                ? $g->player2_id
-                : $g->player1_id;
-        });
+        $nextRound = $game->round + 1;
+        $nextPosition = (int) ceil($game->position / 2);
 
-        Game::firstOrCreate(
-            [
-                'tournament_id' => $tournament->id,
-                'round' => $totalRounds,
-                'position' => 99,
-                'is_third_place' => true
-            ],
-            [
-                'player1_id' => $losers->values()[0],
-                'player2_id' => $losers->values()[1],
-            ]
-        );
+        // 🔥 Nur EXISTIERENDES Spiel holen
+        $nextGame = Game::where('tournament_id', $game->tournament_id)
+            ->where('round', $nextRound)
+            ->where('position', $nextPosition)
+            ->whereNull('group_id')          // nur KO
+            ->where('is_third_place', false)
+            ->first();
+
+        if (!$nextGame) {
+            return; // Sicherheitsabbruch
+        }
+
+        // Gewinner korrekt eintragen
+        if ($game->position % 2 === 1) {
+            $nextGame->player1_id = $winnerId;
+        } else {
+            $nextGame->player2_id = $winnerId;
+        }
+
+        $nextGame->save();
     }
 
     /*
@@ -201,18 +189,8 @@ class TournamentEngine
 
     private function getTotalRounds(Tournament $tournament): int
     {
-        $firstRoundGames = Game::where('tournament_id', $tournament->id)
-            ->where('round', 1)
-            ->where('is_third_place', false)
-            ->get();
-
-        $playerCount = $firstRoundGames
-            ->flatMap(fn($g) => [$g->player1_id, $g->player2_id])
-            ->unique()
-            ->count();
-
-        return $playerCount > 0
-            ? (int) log($playerCount, 2)
-            : 0;
+        return (int) Game::where('tournament_id', $tournament->id)
+            ->whereNull('group_id') // nur KO
+            ->max('round');
     }
 }

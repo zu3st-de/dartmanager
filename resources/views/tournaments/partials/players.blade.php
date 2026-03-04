@@ -112,6 +112,32 @@
             </button>
 
         </form>
+        <div class="mt-4">
+
+            <label class="block text-sm text-gray-400 mb-2">
+                Mehrere Spieler einfügen (eine Zeile pro Spieler)
+            </label>
+
+            <form method="POST"
+                action="{{ route('tournaments.bulkPlayers', $tournament) }}">
+                @csrf
+
+                <textarea
+                    name="bulk_players"
+                    rows="6"
+                    placeholder="Max Mustermann
+Peter Schmidt
+Lisa Müller"
+                    class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+
+                <button
+                    type="submit"
+                    class="mt-3 bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-white">
+                    📋 Liste importieren
+                </button>
+            </form>
+
+        </div>
         @endif
     </div>
 </div>

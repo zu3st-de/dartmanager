@@ -136,7 +136,7 @@
 
                 <form method="POST"
                     action="{{ route('games.updateScore', $game) }}"
-                    class="space-y-3">
+                    class="space-y-3 simulate-group-form" data-bestof="{{ $game->best_of }}">
 
                     @csrf
                     <div class="flex justify-end mb-2">

@@ -17,3 +17,10 @@ document.addEventListener('DOMContentLoaded', function () {
 window.Alpine = Alpine;
 
 Alpine.start();
+
+// Gruppenphase: Speichern der Ergebnisse
+import { initAutoSim } from './modules/autosim';
+
+document.addEventListener('DOMContentLoaded', () => {
+    initAutoSim();
+});

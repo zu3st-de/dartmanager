@@ -112,6 +112,15 @@ Route::middleware('auth')->group(function () {
         [TournamentController::class, 'reopen']
     )
         ->name('tournaments.reopen');
+    Route::post(
+        '/tournaments/{tournament}/bulk-players',
+        [TournamentController::class, 'bulkPlayers']
+    )
+        ->name('tournaments.bulkPlayers');
+    Route::post(
+        '/tournaments/{tournament}/reset-ko',
+        [TournamentController::class, 'resetKo']
+    )->name('tournaments.resetKo');
 });
 
 

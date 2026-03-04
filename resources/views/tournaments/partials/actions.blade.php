@@ -102,11 +102,17 @@
                 </button>
             </form>
             @endif
-
+            @if($tournament->status === 'ko_running')
+            <form method="POST" action="{{ route('tournaments.resetKo', $tournament) }}">
+                @csrf
+                <button class="bg-red-700 hover:bg-red-600 px-4 py-2 rounded-lg text-white">
+                    🔁 KO-Phase zurücksetzen
+                </button>
+            </form>
+            @endif
         </div>
 
     </div>
-
 
     <!-- MODAL -->
     <div

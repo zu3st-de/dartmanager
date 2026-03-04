@@ -162,7 +162,46 @@ class TournamentController extends Controller
 
         return back();
     }
+    public function bulkPlayers(Request $request, Tournament $tournament)
+    {
+        if ($tournament->user_id !== auth()->id()) {
+            abort(403);
+        }
 
+        if ($tournament->status !== 'draft') {
+            return back()->with('error', 'Spieler können nur im Draft hinzugefügt werden.');
+        }
+
+        $request->validate([
+            'bulk_players' => 'required|string'
+        ]);
+
+        $lines = preg_split('/\r\n|\r|\n/', $request->bulk_players);
+
+        $count = 0;
+
+        foreach ($lines as $line) {
+
+            $name = trim($line);
+
+            if ($name === '') {
+                continue;
+            }
+            if ($tournament->players()->where('name', $name)->exists()) {
+                continue;
+            }
+            // Falls aus Excel mit Tabs kopiert → nur erste Spalte
+            $name = explode("\t", $name)[0];
+
+            $tournament->players()->create([
+                'name' => $name
+            ]);
+
+            $count++;
+        }
+
+        return back()->with('success', "$count Spieler importiert.");
+    }
     /*
     |--------------------------------------------------------------------------
     | Spieler auslosen (Seed setzen)
@@ -447,7 +486,6 @@ class TournamentController extends Controller
     | KO aus Gruppen generieren
     |--------------------------------------------------------------------------
     */
-
     public function startKo(Tournament $tournament)
     {
         $this->authorizeTournament($tournament);
@@ -456,26 +494,14 @@ class TournamentController extends Controller
             abort(400);
         }
 
-        $qualified = collect();
+        $qualifiedPlayers = $this->getKoQualifiedPlayers($tournament);
 
-        foreach ($tournament->groups as $group) {
-
-            $table = app(GroupTableCalculator::class)
-                ->calculate($group);
-
-            $topPlayers = collect($table)
-                ->take($tournament->group_advance_count)
-                ->pluck('player');
-
-            $qualified = $qualified->merge($topPlayers);
-        }
-
-        if ($qualified->count() < 2) {
+        if ($qualifiedPlayers->count() < 2) {
             abort(400);
         }
 
         app(KnockoutGenerator::class)
-            ->generate($tournament, $qualified);
+            ->generate($tournament, $qualifiedPlayers);
 
         $tournament->update([
             'status' => 'ko_running'
@@ -484,7 +510,51 @@ class TournamentController extends Controller
         return redirect()
             ->route('tournaments.show', $tournament);
     }
+    private function getKoQualifiedPlayers(Tournament $tournament)
+    {
+        $groups = $tournament->groups()
+            ->orderBy('name')
+            ->get();
 
+        $advance = $tournament->group_advance_count;
+
+        $qualified = collect();
+        $remaining = collect();
+
+        foreach ($groups as $group) {
+
+            $table = app(GroupTableCalculator::class)
+                ->calculate($group);
+
+            foreach ($table as $index => $row) {
+
+                if ($index < $advance) {
+                    $qualified->push($row); // kompletter Tabellen-Datensatz
+                } else {
+                    $remaining->push($row);
+                }
+            }
+        }
+
+        $total = $qualified->count();
+        $targetSize = 2 ** ceil(log($total, 2));
+
+        if ($total < $targetSize) {
+
+            $needed = $targetSize - $total;
+
+            $bestRemaining = $remaining
+                ->sortByDesc('points')
+                ->sortByDesc('difference')
+                ->take($needed);
+
+            $qualified = $qualified->merge($bestRemaining);
+        }
+
+        return $qualified
+            ->pluck('player')
+            ->values();
+    }
     /*
     |--------------------------------------------------------------------------
     | Security
@@ -612,5 +682,30 @@ class TournamentController extends Controller
         ]);
 
         return back()->with('success', 'Turnier wurde wieder geöffnet.');
+    }
+
+    public function resetKo(Tournament $tournament)
+    {
+        $this->authorizeTournament($tournament);
+
+        if ($tournament->status !== 'ko_running') {
+            return back()->with('error', 'KO-Phase läuft nicht.');
+        }
+
+        DB::transaction(function () use ($tournament) {
+
+            // 🔥 Nur KO-Spiele löschen
+            $tournament->games()
+                ->whereNull('group_id')
+                ->delete();
+
+            // Gewinner zurücksetzen
+            $tournament->update([
+                'status' => 'group_running',
+                'winner_id' => null
+            ]);
+        });
+
+        return back()->with('success', 'KO-Phase wurde zurückgesetzt.');
     }
 }
