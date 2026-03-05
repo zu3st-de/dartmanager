@@ -126,6 +126,10 @@ Route::middleware('auth')->group(function () {
         '/tv/{tournament}',
         [TvController::class, 'show']
     )->name('tv.tournament');
+    Route::get(
+        '/tv/{tournament}/data',
+        [TvController::class, 'data']
+    )->name('tv.tournament.data');
 });
 
 
