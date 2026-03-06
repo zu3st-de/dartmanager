@@ -12,16 +12,11 @@
 
 <div class="flex justify-center">
 
-    <div class="grid gap-8
-    @if(count($groupData) <= 2) grid-cols-2
-    @elseif(count($groupData) <= 4) grid-cols-4
-    @else grid-cols-6
-    @endif
-    ">
+    <div class="flex flex-wrap justify-center gap-10">
 
         @foreach($groupData as $data)
 
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg h-full w-[420px] max-w-[420px]">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg w-[420px]">
 
             <div class="text-xl font-semibold text-white mb-6">
                 Gruppe {{ $data['group']->name }}
