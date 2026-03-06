@@ -3,9 +3,46 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
+use App\Models\TvTournament;
+use Illuminate\Http\Request;
 
 class TvController extends Controller
 {
+    public function manage()
+    {
+        $tournaments = Tournament::orderBy('name')->get();
+
+        $selected = TvTournament::pluck('tournament_id')->toArray();
+
+        return view('admin.tv', compact('tournaments', 'selected'));
+    }
+    public function save(Request $request)
+    {
+        TvTournament::truncate();
+
+        $position = 1;
+
+        foreach ($request->tournaments ?? [] as $id) {
+
+            TvTournament::create([
+                'tournament_id' => $id,
+                'position' => $position
+            ]);
+
+            $position++;
+        }
+
+        return redirect()->back()->with('success', 'TV Programm gespeichert');
+    }
+    public function rotation()
+    {
+        $tournaments = TvTournament::with('tournament')
+            ->orderBy('position')
+            ->get()
+            ->pluck('tournament');
+
+        return view('tv.rotation', compact('tournaments'));
+    }
     public function show(Tournament $tournament)
     {
         $tournament->load([
@@ -16,6 +53,16 @@ class TvController extends Controller
             'games.player2',
             'games.winner'
         ]);
+        /*
+        |---------------------------------------------------
+        | Draft Phase (Turnier noch nicht gestartet)
+        |---------------------------------------------------
+        */
+
+        if ($tournament->status === 'draft') {
+
+            return view('tv.draft', compact('tournament'));
+        }
 
         /*
         |---------------------------------------------------
@@ -76,6 +123,7 @@ class TvController extends Controller
 
             return view('tv.bracket', compact('tournament', 'rounds'));
         }
+
 
         abort(404);
     }

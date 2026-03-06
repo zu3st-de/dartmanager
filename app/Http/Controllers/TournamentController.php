@@ -120,7 +120,11 @@ class TournamentController extends Controller
         $groupGames = $tournament->games()
             ->where('round', 0);
 
-        $groupBestOf = $groupGames->value('best_of');
+        $groupBestOf = $tournament->games()
+            ->whereNotNull('group_id')
+            ->pluck('best_of')
+            ->unique()
+            ->first() ?? 3;
 
         $groupHasResults = $groupGames
             ->where(function ($q) {
@@ -390,69 +394,29 @@ class TournamentController extends Controller
     }
     /*
     |--------------------------------------------------------------------------
-    | Gruppenphase Best-of aktualisieren
+    | KO-Runde Best-of aktualisieren
     |--------------------------------------------------------------------------
     */
     public function updateGroupBestOf(Request $request, Tournament $tournament)
     {
         $groupHasResults = $tournament->games()
-            ->where('round', 0)
-            ->where(function ($q) {
-                $q->whereNotNull('winner_id');
-            })
+            ->whereNotNull('group_id')
+            ->whereNotNull('winner_id')
             ->exists();
 
         if ($groupHasResults) {
             return back()->with('error', 'Best Of kann nicht mehr geändert werden.');
         }
+
         $request->validate([
             'group_best_of' => 'required|in:1,3,5,7'
         ]);
 
-        // Alle Gruppenspiele updaten (round = 0 bei dir)
         $tournament->games()
-            ->where('round', 0)
+            ->whereNotNull('group_id')
             ->update([
                 'best_of' => $request->group_best_of
             ]);
-
-        return back();
-    }
-    /*
-    |--------------------------------------------------------------------------
-    | KO-Runde Best-of aktualisieren
-    |--------------------------------------------------------------------------
-    */
-    public function updateRoundBestOf(
-        Request $request,
-        Tournament $tournament,
-        int $round
-    ) {
-        $this->authorizeTournament($tournament);
-
-        $request->validate([
-            'best_of' => 'required|in:1,3,5,7,9',
-            'is_third_place' => 'nullable|boolean'
-        ]);
-
-        $isThirdPlace = (bool) $request->input('is_third_place', false);
-
-        $query = $tournament->games()
-            ->where('round', $round)
-            ->where('is_third_place', $isThirdPlace);
-
-        // 🔥 WICHTIG: clone verwenden
-        $hasResults = (clone $query)
-            ->whereNotNull('winner_id')
-            ->exists();
-
-        if ($hasResults) {
-            return back()->with('error', 'Best Of kann nicht mehr geändert werden.');
-        }
-
-        $query->update([
-            'best_of' => $request->best_of
-        ]);
 
         return back();
     }

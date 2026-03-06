@@ -222,6 +222,14 @@
                             {{ $game->player2_score ?? '-' }}
                         </span>
                     </div>
+                    @if($game->best_of == 1 && $game->winning_rest !== null)
+                    <div class="flex items-center gap-2 mt-2">
+                        <span class="text-xs text-gray-400">Rest</span>
+                        <span class="w-20 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-center text-white">
+                            {{ $game->winning_rest }}
+                        </span>
+                    </div>
+                    @endif
 
                 </div>
 

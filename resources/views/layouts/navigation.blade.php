@@ -21,7 +21,12 @@
                 class="text-gray-300 hover:text-white text-sm font-semibold transition">
                 Alle Turniere
             </a>
-
+            <a href="/admin/tv" class="nav-link">
+                TV Admin
+            </a>
+            <a href="/tv" class="nav-link">
+                TV Rotation
+            </a>
             {{-- Aktive Turniere --}}
             @foreach($activeTournaments ?? [] as $tournament)
 

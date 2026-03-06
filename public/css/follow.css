@@ -1,0 +1,59 @@
+.follow-page {
+    max-width: 700px;
+    margin: auto;
+}
+
+.section-title {
+    margin-top: 30px;
+}
+
+.match-card {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 6px;
+}
+
+.match-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.score {
+    font-weight: bold;
+}
+
+.winner {
+    font-weight: bold;
+    color: #00ff9c;
+}
+
+@keyframes shakeDice {
+
+    0% {
+        transform: translateY(0px) rotate(0deg);
+    }
+
+    25% {
+        transform: translateY(-6px) rotate(-6deg);
+    }
+
+    50% {
+        transform: translateY(4px) rotate(6deg);
+    }
+
+    75% {
+        transform: translateY(-4px) rotate(-3deg);
+    }
+
+    100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+
+}
+
+.dice-container span {
+    animation: shakeDice 0.5s infinite;
+    margin: 0 8px;
+    display: inline-block;
+}

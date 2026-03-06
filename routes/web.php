@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\TvController;
+use App\Http\Controllers\PublicController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -130,6 +131,19 @@ Route::middleware('auth')->group(function () {
         '/tv/{tournament}/data',
         [TvController::class, 'data']
     )->name('tv.tournament.data');
+    Route::get(
+        '/follow/{tournament}',
+        [PublicController::class, 'follow']
+    )
+        ->name('tournament.follow');
+    Route::get(
+        '/follow/{tournament}/data',
+        [PublicController::class, 'followData']
+    );
+    Route::get('/tv', [TvController::class, 'rotation']);
+    Route::get('/tv', [TvController::class, 'rotation']);
+    Route::get('/admin/tv', [TvController::class, 'manage']);
+    Route::post('/admin/tv', [TvController::class, 'save']);
 });
 
 
