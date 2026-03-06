@@ -21,7 +21,7 @@
 
         @foreach($groupData as $data)
 
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg h-full w-[420px]">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg h-full w-[420px] max-w-[420px]">
 
             <div class="text-xl font-semibold text-white mb-6">
                 Gruppe {{ $data['group']->name }}
