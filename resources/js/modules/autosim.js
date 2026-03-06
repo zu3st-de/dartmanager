@@ -7,31 +7,17 @@ function getSpeed() {
 
 function simulateGroup() {
 
-    const forms = document.querySelectorAll('.simulate-group-form');
+    const groups = document.querySelectorAll('[data-group]');
+    if (!groups.length) return false;
 
-    const groups = {};
+    let currentIndex = parseInt(localStorage.getItem('autosimGroupIndex') || 0);
 
-    // Spiele nach Gruppen sortieren
-    forms.forEach(form => {
+    for (let i = 0; i < groups.length; i++) {
 
-        const groupContainer = form.closest('[data-group]');
-        if (!groupContainer) return;
+        const group = groups[(currentIndex + i) % groups.length];
+        const forms = group.querySelectorAll('.simulate-group-form');
 
-        const groupId = groupContainer.dataset.group;
-
-        if (!groups[groupId]) {
-            groups[groupId] = [];
-        }
-
-        groups[groupId].push(form);
-
-    });
-
-    let simulated = false;
-
-    Object.values(groups).forEach(groupForms => {
-
-        for (const form of groupForms) {
+        for (const form of forms) {
 
             const inputs = form.querySelectorAll('input[type="number"]');
             if (inputs.length < 2) continue;
@@ -43,7 +29,6 @@ function simulateGroup() {
 
             const bestOf = parseInt(form.dataset.bestof || 3);
             const needed = Math.ceil(bestOf / 2);
-
             const winnerIsFirst = Math.random() < 0.5;
 
             if (bestOf === 1) {
@@ -68,14 +53,15 @@ function simulateGroup() {
 
             }
 
+            // nächste Gruppe merken
+            localStorage.setItem('autosimGroupIndex', (currentIndex + i + 1) % groups.length);
+
             form.submit();
-            simulated = true;
-            break; // nur EIN Spiel pro Gruppe
+            return true;
         }
+    }
 
-    });
-
-    return simulated;
+    return false;
 }
 
 function simulateKoRound() {
