@@ -104,7 +104,7 @@
 
         showPage()
 
-        setInterval(next, 20000)
+        setInterval(next, 10000)
 
     })
 </script>

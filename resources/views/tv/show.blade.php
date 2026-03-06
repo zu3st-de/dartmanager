@@ -9,10 +9,8 @@
     </h1>
 
 </div>
-
-<div class="flex justify-center">
-
-    <div class="flex flex-wrap justify-center gap-10">
+<div class="flex justify-center w-full">
+    <div class="flex flex-wrap justify-center gap-10 max-w-[1800px] mx-auto">
 
         @foreach($groupData as $data)
 
