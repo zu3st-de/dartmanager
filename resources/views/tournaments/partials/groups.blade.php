@@ -45,7 +45,7 @@
         ->calculate($group);
         @endphp
 
-        <div class="min-w-[320px]">
+        <div class="min-w-[320px]" data-group="{{ $group->id }}">
 
             <h3 class="text-sm text-gray-400 mb-4">
                 Gruppe {{ $group->name }}
@@ -136,7 +136,7 @@
 
                 <form method="POST"
                     action="{{ route('games.updateScore', $game) }}"
-                    class="space-y-3 simulate-group-form" data-bestof="{{ $game->best_of }}">
+                    class="space-y-3 simulate-group-form" data-bestof="{{ $game->best_of }} ">
 
                     @csrf
                     <div class="flex justify-end mb-2">

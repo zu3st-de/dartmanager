@@ -9,45 +9,73 @@ function simulateGroup() {
 
     const forms = document.querySelectorAll('.simulate-group-form');
 
-    for (let form of forms) {
+    const groups = {};
 
-        const inputs = form.querySelectorAll('input[type="number"]');
-        if (inputs.length < 2) continue;
+    // Spiele nach Gruppen sortieren
+    forms.forEach(form => {
 
-        if (inputs[0].value || inputs[1].value) continue;
+        const groupContainer = form.closest('[data-group]');
+        if (!groupContainer) return;
 
-        const bestOf = parseInt(form.dataset.bestof || 3);
-        const needed = Math.ceil(bestOf / 2);
+        const groupId = groupContainer.dataset.group;
 
-        const winnerIsFirst = Math.random() < 0.5;
-
-        if (bestOf === 1) {
-
-            inputs[0].value = winnerIsFirst ? 1 : 0;
-            inputs[1].value = winnerIsFirst ? 0 : 1;
-
-            const restField = form.querySelector('input[name="winning_rest"]');
-            if (restField) {
-                restField.value = Math.floor(Math.random() * 171);
-            }
-
-        } else {
-
-            if (winnerIsFirst) {
-                inputs[0].value = needed;
-                inputs[1].value = Math.floor(Math.random() * needed);
-            } else {
-                inputs[0].value = Math.floor(Math.random() * needed);
-                inputs[1].value = needed;
-            }
-
+        if (!groups[groupId]) {
+            groups[groupId] = [];
         }
 
-        form.submit();
-        return true;
-    }
+        groups[groupId].push(form);
 
-    return false;
+    });
+
+    let simulated = false;
+
+    Object.values(groups).forEach(groupForms => {
+
+        for (const form of groupForms) {
+
+            const inputs = form.querySelectorAll('input[type="number"]');
+            if (inputs.length < 2) continue;
+
+            const p1 = inputs[0];
+            const p2 = inputs[1];
+
+            if (p1.value !== '' || p2.value !== '') continue;
+
+            const bestOf = parseInt(form.dataset.bestof || 3);
+            const needed = Math.ceil(bestOf / 2);
+
+            const winnerIsFirst = Math.random() < 0.5;
+
+            if (bestOf === 1) {
+
+                p1.value = winnerIsFirst ? 1 : 0;
+                p2.value = winnerIsFirst ? 0 : 1;
+
+                const restField = form.querySelector('input[name="winning_rest"]');
+                if (restField) {
+                    restField.value = Math.floor(Math.random() * 171);
+                }
+
+            } else {
+
+                if (winnerIsFirst) {
+                    p1.value = needed;
+                    p2.value = Math.floor(Math.random() * needed);
+                } else {
+                    p1.value = Math.floor(Math.random() * needed);
+                    p2.value = needed;
+                }
+
+            }
+
+            form.submit();
+            simulated = true;
+            break; // nur EIN Spiel pro Gruppe
+        }
+
+    });
+
+    return simulated;
 }
 
 function simulateKoRound() {
