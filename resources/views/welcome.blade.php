@@ -16,29 +16,29 @@
 
         <!-- Logo -->
         <div class="flex justify-center mb-8">
-            <img src="{{ asset('images/logo.png') }}"
-                class="h-80 w-auto"
-                alt="Dart-Manager">
+            <img src="{{ asset('images/logo.png') }}" class="h-80 w-auto" alt="Dart-Manager">
         </div>
 
         <!-- Buttons -->
         <div class="flex justify-center gap-4">
 
             @auth
-            <a href="{{ route('tournaments.index') }}"
-                class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white transition">
-                Zu den Turnieren
-            </a>
+                <a href="{{ route('tournaments.index') }}"
+                    class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white transition">
+                    Zu den Turnieren
+                </a>
             @else
-            <a href="{{ route('login') }}"
-                class="px-6 py-2 border border-gray-700 hover:bg-gray-800 rounded-lg transition">
-                Log in
-            </a>
+                <a href="{{ route('login') }}"
+                    class="px-6 py-2 border border-gray-700 hover:bg-gray-800 rounded-lg transition">
+                    Log in
+                </a>
+                @if (Route::has('register'))
 
-            <a href="{{ route('register') }}"
-                class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white transition">
-                Registrieren
-            </a>
+                    <a href="{{ route('register') }}"
+                        class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white transition">
+                        Registrieren
+                    </a>
+                @endif
             @endauth
 
         </div>
