@@ -9,7 +9,7 @@
 
         @csrf
         <div class="flex justify-between items-center text-sm">
-            <span>{{ $game->player1->name ?? 'TBD' }}</span>
+            <span>{{ $game->player1->name ?? $game->player1_source }}</span>
             <input type="number"
                 name="player1_score"
                 min="0"
@@ -18,7 +18,7 @@
         </div>
 
         <div class="flex justify-between items-center text-sm">
-            <span>{{ $game->player2->name ?? 'TBD' }}</span>
+            <span>{{ $game->player2->name ?? $game->player2_source }}</span>
             <input type="number"
                 name="player2_score"
                 min="0"
@@ -90,7 +90,7 @@
                 @if($isFinal && !$p1Winner && $game->winner_id) 🥈 @endif
                 @if($isThird && $p1Winner) 🥉 @endif
 
-                {{ $game->player1->name ?? 'TBD' }}
+                {{ $game->player1->name ?? $game->player1_source }}
             </span>
 
             <span class="font-mono">
@@ -129,7 +129,7 @@
                 @if($isFinal && !$p2Winner && $game->winner_id) 🥈 @endif
                 @if($isThird && $p2Winner) 🥉 @endif
 
-                {{ $game->player2->name ?? 'TBD' }}
+                {{ $game->player2->name ?? $game->player2_source }}
             </span>
 
             <span class="font-mono">

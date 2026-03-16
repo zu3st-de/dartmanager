@@ -2,6 +2,23 @@
 
 @section('content')
 
+@php
+function formatSource($source) {
+
+if (!$source) return "—";
+
+if (preg_match('/([A-Z]+)(\d+)/', $source, $m)) {
+
+if ($m[1] === 'W') return "Sieger Spiel ".$m[2];
+if ($m[1] === 'L') return "Verlierer HF ".$m[2];
+
+return $m[2] . ". Gruppe " . $m[1];
+}
+
+return $source;
+}
+@endphp
+
 <div class="max-w-7xl mx-auto px-6 py-8">
 
     <h2 class="text-3xl font-bold text-white mb-6">
@@ -286,7 +303,7 @@
                 <div class="flex justify-between text-sm">
 
                     <span class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
-                        {{ $match->player1?->name }}
+                        {{ $match->player1->name ?? formatSource($match->player1_source) }}
                     </span>
 
                     <span class="score text-gray-400">
@@ -294,7 +311,7 @@
                     </span>
 
                     <span class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
-                        {{ $match->player2?->name }}
+                        {{ $match->player2->name ?? formatSource($match->player2_source) }}
                     </span>
 
                 </div>
@@ -326,7 +343,7 @@
             <div class="match-row">
 
                 <span class="{{ $match->winner_id == $match->player1_id ? 'winner' : '' }}">
-                    {{ $match->player1?->name }}
+                    {{ $match->player1->name ?? formatSource($match->player1_source) }}
                 </span>
 
                 <span class="score">
@@ -334,7 +351,7 @@
                 </span>
 
                 <span class="{{ $match->winner_id == $match->player2_id ? 'winner' : '' }}">
-                    {{ $match->player2?->name }}
+                    {{ $match->player2->name ?? formatSource($match->player2_source) }}
                 </span>
 
             </div>

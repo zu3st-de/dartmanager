@@ -20,6 +20,8 @@ class Game extends Model
         'player2_score',
         'winning_rest',
         'is_third_place',
+        'player1_source',
+        'player2_source',
     ];
 
     /*

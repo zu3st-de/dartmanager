@@ -252,8 +252,17 @@ class TournamentController extends Controller
                 abort(400);
             }
 
+            // Gruppen erzeugen
             app(GroupGenerator::class)
                 ->generate($tournament, $tournament->group_count);
+
+            // KO Platzhalter erzeugen
+            $qualifiedCount =
+                $tournament->group_count *
+                $tournament->group_advance_count;
+
+            app(KnockoutGenerator::class)
+                ->generatePlaceholderBracket($tournament, $qualifiedCount);
 
             $tournament->update([
                 'status' => 'group_running'
@@ -279,10 +288,12 @@ class TournamentController extends Controller
             $tournament->update([
                 'status' => 'ko_running'
             ]);
+
+            return redirect()
+                ->route('tournaments.show', $tournament);
         }
 
-        return redirect()
-            ->route('tournaments.show', $tournament);
+        abort(400);
     }
 
     /*
@@ -460,12 +471,8 @@ class TournamentController extends Controller
 
         $qualifiedPlayers = $this->getKoQualifiedPlayers($tournament);
 
-        if ($qualifiedPlayers->count() < 2) {
-            abort(400);
-        }
-
         app(KnockoutGenerator::class)
-            ->generate($tournament, $qualifiedPlayers);
+            ->fillBracketPlayers($tournament, $qualifiedPlayers);
 
         $tournament->update([
             'status' => 'ko_running'

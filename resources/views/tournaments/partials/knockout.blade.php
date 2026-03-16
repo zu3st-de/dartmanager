@@ -1,4 +1,4 @@
-@if($tournament->status === 'ko_running' || $tournament->status === 'finished')
+@if($tournament->status === 'ko_running' || $tournament->status === 'finished'|| $tournament->status === 'group_running')
 
 @php
 

@@ -69,6 +69,7 @@ class PublicController extends Controller
 
         $koRounds = $tournament->games
             ->whereNull('group_id')
+            ->where('is_third_place', false)
             ->sortBy([
                 ['round', 'asc'],
                 ['position', 'asc']
@@ -169,6 +170,7 @@ class PublicController extends Controller
 
         $koRounds = $tournament->games
             ->whereNull('group_id')
+            ->where('is_third_place', false)
             ->sortBy('round')
             ->groupBy('round');
 
