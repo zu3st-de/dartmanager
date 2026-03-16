@@ -2,627 +2,605 @@
 
 @section('content')
 
-@php
-function formatSource($source) {
+    @php
 
-if (!$source) return "—";
+        /**
+         * -------------------------------------------------------------
+         * SOURCE FORMATIERUNG FÜR KO MATCHES
+         * -------------------------------------------------------------
+         *
+         * KO Spiele werden in der DB häufig mit Quellen gespeichert wie:
+         *
+         * W1  = Winner Spiel 1
+         * L2  = Loser Halbfinale 2
+         * A1  = 1. Platz Gruppe A
+         *
+         * Diese Funktion übersetzt diese Kurzform in lesbare Texte
+         * für Zuschauer auf der Follow-Seite.
+         */
+        function formatSource($source, $roundFromEnd = null)
+        {
+            if (!$source) {
+                return '—';
+            }
 
-if (preg_match('/([A-Z]+)(\d+)/', $source, $m)) {
+            if (preg_match('/([A-Z]+)(\d+)/', $source, $m)) {
+                $type = $m[1];
+                $num = $m[2];
 
-if ($m[1] === 'W') return "Sieger Spiel ".$m[2];
-if ($m[1] === 'L') return "Verlierer HF ".$m[2];
+                // Gewinner vorheriger KO Runde
+                if ($type === 'W') {
+                    if ($roundFromEnd === 3) {
+                        return "Sieger {$num}. Achtelfinale";
+                    }
 
-return $m[2] . ". Gruppe " . $m[1];
-}
+                    if ($roundFromEnd === 2) {
+                        return "Sieger {$num}. Viertelfinale";
+                    }
 
-return $source;
-}
-@endphp
+                    if ($roundFromEnd === 1) {
+                        return "Sieger {$num}. Halbfinale";
+                    }
 
-<div class="max-w-7xl mx-auto px-6 py-8">
+                    return "Sieger Spiel {$num}";
+                }
 
-    <h2 class="text-3xl font-bold text-white mb-6">
-        {{ $tournament->name }}
-    </h2>
-    @if($tournament->status === 'draft')
+                // Verlierer Halbfinale → Spiel um Platz 3
+                if ($type === 'L') {
+                    return "Verlierer {$num}. Halbfinale";
+                }
 
-    <div id="draftOverlay"
-        class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center text-center z-50">
-        <!-- Turniername -->
-        <div class="text-4xl font-bold mb-6">
+                // Gruppenergebnis
+                return $num . '. Gruppe ' . $type;
+            }
+
+            return $source;
+        }
+
+        /**
+         * -------------------------------------------------------------
+         * AUTOMATISCHE KO RUNDEN BENENNUNG
+         * -------------------------------------------------------------
+         *
+         * Bestimmt den Namen der KO Runde anhand der Match Anzahl.
+         *
+         * Beispiel:
+         * 1 Match  -> Finale
+         * 2 Matches -> Halbfinale
+         * 4 Matches -> Viertelfinale
+         */
+        function koRoundName($matchCount)
+        {
+            $players = $matchCount * 2;
+
+            return match ($players) {
+                2 => 'Finale',
+                4 => 'Halbfinale',
+                8 => 'Viertelfinale',
+                16 => 'Achtelfinale',
+                32 => 'Sechzehntelfinale',
+                default => "Runde der {$players}",
+            };
+        }
+
+    @endphp
+
+
+    <div class="max-w-7xl mx-auto px-6 py-8">
+
+        {{-- ============================================================
+   TURNIER NAME
+============================================================ --}}
+
+        <h2 class="text-3xl font-bold text-white mb-6">
             {{ $tournament->name }}
-        </div>
-
-        <div class="text-3xl font-bold mb-6">
-            Turnier startet in wenigen Augenblicken
-        </div>
-
-        <div class="text-lg text-gray-300 mb-10">
-            Teilnehmer werden ausgelost
-        </div>
-
-        <div class="dice-container text-6xl">
-            🎲 🎲 🎲
-        </div>
-
-    </div>
-
-    @endif
-
-    <!-- Spielerfilter -->
-
-    <select id="playerFilter"
-        class="mb-6 w-full max-w-md bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-300">
-
-        <option value="">Alle Spieler</option>
-
-        @foreach($players as $player)
-
-        <option value="{{ $player->id }}">
-            {{ $player->name }}
-        </option>
-
-        @endforeach
-
-    </select>
+        </h2>
 
 
-    <div id="followContent">
+        {{-- ============================================================
+   DRAFT OVERLAY (WENN TURNIER NOCH NICHT GESTARTET)
+============================================================ --}}
 
-        <!-- GRUPPEN -->
+        @if ($tournament->status === 'draft')
+            <div id="draftOverlay"
+                class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center text-center z-50">
 
-        <div class="space-y-10">
+                <div class="text-4xl font-bold mb-6">
+                    {{ $tournament->name }}
+                </div>
 
-            @foreach($groupData as $data)
+                <div class="text-3xl font-bold mb-6">
+                    Turnier startet in wenigen Augenblicken
+                </div>
 
-            <div class="group-block border-b border-gray-700 pb-8"
-                data-group="{{ $data['group']->id }}"
-                data-players="{{ $data['group']->players->pluck('id')->join(',') }}">
+                <div class="text-lg text-gray-300 mb-10">
+                    Teilnehmer werden ausgelost
+                </div>
 
-                <h4 class="text-lg font-semibold text-white mb-4">
-                    Gruppe {{ $data['group']->name }}
-                </h4>
+                <div class="dice-container text-6xl">
+                    🎲 🎲 🎲
+                </div>
+
+            </div>
+        @endif
 
 
-                <!-- Tabelle -->
+        {{-- ============================================================
+   SPIELER FILTER
+   Ermöglicht nur Spiele eines Spielers anzuzeigen
+============================================================ --}}
 
-                <div class="overflow-hidden rounded-lg border border-gray-700">
+        <select id="playerFilter"
+            class="mb-6 w-full max-w-md bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-300">
 
-                    <table class="w-full text-sm">
+            <option value="">Alle Spieler</option>
 
-                        <thead class="bg-gray-800 text-gray-400 uppercase text-xs tracking-wider">
-                            <tr>
-                                <th>#</th>
-                                <th>Spieler</th>
-                                <th>Sp</th>
-                                <th>S</th>
-                                <th>N</th>
-                                <th>Diff</th>
-                                <th>Pkt</th>
-                            </tr>
-                        </thead>
+            @foreach ($players as $player)
+                <option value="{{ $player->id }}">
+                    {{ $player->name }}
+                </option>
+            @endforeach
 
-                        <tbody>
+        </select>
 
-                            @foreach($data['table'] as $index => $row)
 
-                            @php
-                            $isQualified = $index < $tournament->group_advance_count;
-                                $isFirst = $index === 0;
-                                $diff = $row['difference'];
-                                @endphp
 
-                                <tr class="{{ $isQualified ? 'bg-green-600/10' : '' }} border-t border-gray-800">
+        <div id="followContent">
 
-                                    <td class="px-2 py-2 font-mono {{ $isFirst ? 'text-yellow-400 font-bold' : '' }}">
-                                        {{ $index + 1 }}
-                                    </td>
 
-                                    <td class="px-2 py-2 {{ $isQualified ? 'text-green-400' : '' }}">
+            {{-- ============================================================
+   GRUPPENPHASE
+============================================================ --}}
 
-                                        @if($isFirst)
-                                        🏆
-                                        @endif
+            <div class="space-y-10">
 
-                                        {{ $row['player']->name }}
+                @foreach ($groupData as $data)
+                    <div class="group-block border-b border-gray-700 pb-8" data-group="{{ $data['group']->id }}"
+                        data-players="{{ $data['group']->players->pluck('id')->join(',') }}">
 
-                                    </td>
+                        <h4 class="text-lg font-semibold text-white mb-4">
+                            Gruppe {{ $data['group']->name }}
+                        </h4>
 
-                                    <td class="px-2 py-2 text-center">
-                                        {{ $row['played'] }}
-                                    </td>
 
-                                    <td class="px-2 py-2 text-center text-green-400">
-                                        {{ $row['wins'] }}
-                                    </td>
+                        {{-- ------------------------------------------------------------
+   GRUPPENTABELLE
+------------------------------------------------------------ --}}
 
-                                    <td class="px-2 py-2 text-center text-red-400">
-                                        {{ $row['losses'] }}
-                                    </td>
+                        <div class="overflow-hidden rounded-lg border border-gray-700">
 
-                                    <td class="px-2 py-2 text-center font-mono
+                            <table class="w-full text-sm">
+
+                                <thead class="bg-gray-800 text-gray-400 uppercase text-xs tracking-wider">
+
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Spieler</th>
+                                        <th>Sp</th>
+                                        <th>S</th>
+                                        <th>N</th>
+                                        <th>Diff</th>
+                                        <th>Pkt</th>
+                                    </tr>
+
+                                </thead>
+
+
+                                <tbody>
+
+                                    @foreach ($data['table'] as $index => $row)
+                                        @php
+                                            $isQualified = $index < $tournament->group_advance_count;
+                                            $isFirst = $index === 0;
+                                            $diff = $row['difference'];
+                                        @endphp
+
+
+                                        <tr class="{{ $isQualified ? 'bg-green-600/10' : '' }} border-t border-gray-800">
+
+                                            <td
+                                                class="px-2 py-2 font-mono {{ $isFirst ? 'text-yellow-400 font-bold' : '' }}">
+                                                {{ $index + 1 }}
+                                            </td>
+
+                                            <td class="px-2 py-2 {{ $isQualified ? 'text-green-400' : '' }}">
+
+                                                @if ($isFirst)
+                                                    🏆
+                                                @endif
+
+                                                {{ $row['player']->name }}
+
+                                            </td>
+
+                                            <td class="px-2 py-2 text-center">
+                                                {{ $row['played'] }}
+                                            </td>
+
+                                            <td class="px-2 py-2 text-center text-green-400">
+                                                {{ $row['wins'] }}
+                                            </td>
+
+                                            <td class="px-2 py-2 text-center text-red-400">
+                                                {{ $row['losses'] }}
+                                            </td>
+
+                                            <td
+                                                class="px-2 py-2 text-center font-mono
 {{ $diff > 0 ? 'text-green-400' : ($diff < 0 ? 'text-red-400' : 'text-gray-400') }}">
 
-                                        {{ $diff > 0 ? '+' : '' }}{{ $diff }}
+                                                {{ $diff > 0 ? '+' : '' }}{{ $diff }}
 
-                                    </td>
+                                            </td>
 
-                                    <td class="px-2 py-2 text-center font-bold text-white">
-                                        {{ $row['points'] }}
-                                    </td>
+                                            <td class="px-2 py-2 text-center font-bold text-white">
+                                                {{ $row['points'] }}
+                                            </td>
 
-                                </tr>
+                                        </tr>
+                                    @endforeach
 
-                                @endforeach
+                                </tbody>
 
-                        </tbody>
+                            </table>
 
-                    </table>
-
-                </div>
-                <div class="mt-4 space-y-2 text-sm">
-
-                    @if($data['lastGame'])
-
-                    <div>
-                        <strong>Letztes Spiel:</strong>
-
-                        {{ $data['lastGame']->player1->name }}
-                        {{ $data['lastGame']->player1_score }}
-                        :
-                        {{ $data['lastGame']->player2_score }}
-                        {{ $data['lastGame']->player2->name }}
-
-                    </div>
-
-                    @endif
+                        </div>
 
 
-                    @if($data['currentGame'])
 
-                    <div class="text-yellow-400 font-semibold">
+                        {{-- ------------------------------------------------------------
+   LETZTES / AKTUELLES / NÄCHSTES SPIEL
+------------------------------------------------------------ --}}
 
-                        Jetzt am Board:
+                        <div class="mt-4 space-y-2 text-sm">
 
-                        {{ $data['currentGame']->player1?->name }}
-                        vs
-                        {{ $data['currentGame']->player2?->name }}
+                            @if ($data['lastGame'])
+                                <div>
+                                    <strong>Letztes Spiel:</strong>
 
-                    </div>
+                                    {{ $data['lastGame']->player1->name }}
+                                    {{ $data['lastGame']->player1_score }}
+                                    :
+                                    {{ $data['lastGame']->player2_score }}
+                                    {{ $data['lastGame']->player2->name }}
 
-                    @endif
-
-
-                    @if($data['nextGame'])
-
-                    <div class="text-gray-400">
-
-                        Nächstes Spiel:
-
-                        {{ $data['nextGame']->player1?->name }}
-                        vs
-                        {{ $data['nextGame']->player2?->name }}
-
-                    </div>
-
-                    @endif
-
-                </div>
-
-                <!-- Spiele Button -->
-
-                <button class="mt-4 text-sm px-3 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-800"
-                    onclick="toggleGroupGames({{ $data['group']->id }})">
-
-                    Spiele anzeigen
-
-                </button>
+                                </div>
+                            @endif
 
 
-                <!-- Gruppenspiele -->
+                            @if ($data['currentGame'])
+                                <div class="text-yellow-400 font-semibold">
 
-                <div id="groupGames{{ $data['group']->id }}" class="group-games mt-4 hidden">
+                                    Jetzt am Board:
 
-                    @foreach($data['games'] as $match)
+                                    {{ $data['currentGame']->player1?->name }}
+                                    vs
+                                    {{ $data['currentGame']->player2?->name }}
 
-                    <div class="match-card border-b border-gray-800 py-2"
-                        data-match="{{ $match->id }}"
-                        data-player1="{{ $match->player1_id }}"
-                        data-player2="{{ $match->player2_id }}">
+                                </div>
+                            @endif
 
-                        <div class="flex justify-between text-sm">
 
-                            <span class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
-                                {{ $match->player1?->name }}
-                            </span>
+                            @if ($data['nextGame'])
+                                <div class="text-gray-400">
 
-                            <span class="score text-gray-400">
-                                {{ $match->player1_score }} : {{ $match->player2_score }}
-                            </span>
+                                    Nächstes Spiel:
 
-                            <span class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
-                                {{ $match->player2?->name }}
-                            </span>
+                                    {{ $data['nextGame']->player1?->name }}
+                                    vs
+                                    {{ $data['nextGame']->player2?->name }}
+
+                                </div>
+                            @endif
+
+                        </div>
+
+
+
+                        {{-- ------------------------------------------------------------
+   BUTTON ZUM AUFKLAPPEN DER GRUPPENSPIELE
+------------------------------------------------------------ --}}
+
+                        <button
+                            class="mt-4 text-sm px-3 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-800"
+                            onclick="toggleGroupGames({{ $data['group']->id }})">
+
+                            Spiele anzeigen
+
+                        </button>
+
+
+
+                        {{-- ------------------------------------------------------------
+   GRUPPENSPIELE LISTE
+------------------------------------------------------------ --}}
+
+                        <div id="groupGames{{ $data['group']->id }}" class="group-games mt-4 hidden">
+
+                            @foreach ($data['games'] as $match)
+                                <div class="match-card border-b border-gray-800 py-2" data-match="{{ $match->id }}"
+                                    data-player1="{{ $match->player1_id }}" data-player2="{{ $match->player2_id }}">
+
+                                    <div class="flex justify-between text-sm">
+
+                                        <span
+                                            class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
+                                            {{ $match->player1?->name }}
+                                        </span>
+
+                                        <span class="score text-gray-400">
+                                            {{ $match->player1_score }} : {{ $match->player2_score }}
+                                        </span>
+
+                                        <span
+                                            class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
+                                            {{ $match->player2?->name }}
+                                        </span>
+
+                                    </div>
+
+                                </div>
+                            @endforeach
 
                         </div>
 
                     </div>
-
-                    @endforeach
-
-                </div>
+                @endforeach
 
             </div>
 
-            @endforeach
+
+
+            {{-- ============================================================
+   KO PHASE
+============================================================ --}}
+
+            @if ($koRounds->count())
+                <h4 class="text-xl font-semibold text-white mt-10 mb-4">
+                    KO Phase
+                </h4>
+
+                @php $totalRounds = $koRounds->count(); @endphp
+
+                @foreach ($koRounds as $roundNumber => $matches)
+                    @php
+                        $currentRoundIndex = $loop->index;
+                        $roundFromEnd = $totalRounds - $currentRoundIndex;
+                    @endphp
+
+
+
+                    {{-- Spiel um Platz 3 vor Finale --}}
+                    @if ($roundFromEnd === 1 && $tournament->has_third_place && $thirdPlaceMatches->count())
+                        <div class="ko-round mb-6">
+
+                            <h5 class="text-gray-400 mb-2">Spiel um Platz 3</h5>
+
+                            @foreach ($thirdPlaceMatches as $match)
+                                <div class="match-card border-b border-gray-800 py-2">
+
+                                    <div class="flex justify-between text-sm">
+
+                                        <span>{{ $match->player1->name ?? formatSource($match->player1_source) }}</span>
+
+                                        <span class="score text-gray-400">
+                                            {{ $match->player1_score }} : {{ $match->player2_score }}
+                                        </span>
+
+                                        <span>{{ $match->player2->name ?? formatSource($match->player2_source) }}</span>
+
+                                    </div>
+
+                                </div>
+                            @endforeach
+
+                        </div>
+                    @endif
+
+
+
+                    <div class="ko-round mb-6">
+
+                        <h5 class="text-gray-400 mb-2">
+                            {{ koRoundName($matches->count()) }}
+                        </h5>
+
+                        @foreach ($matches as $match)
+                            <div class="match-card border-b border-gray-800 py-2" data-match="{{ $match->id }}"
+                                data-player1="{{ $match->player1_id }}" data-player2="{{ $match->player2_id }}">
+
+                                <div class="flex justify-between text-sm">
+
+                                    <span
+                                        class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
+                                        {{ $match->player1->name ?? formatSource($match->player1_source, $roundFromEnd) }}
+                                    </span>
+
+                                    <span class="score text-gray-400">
+                                        {{ $match->player1_score }} : {{ $match->player2_score }}
+                                    </span>
+
+                                    <span
+                                        class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
+                                        {{ $match->player2->name ?? formatSource($match->player2_source, $roundFromEnd) }}
+                                    </span>
+
+                                </div>
+
+                            </div>
+                        @endforeach
+
+                    </div>
+                @endforeach
+            @endif
+
+
 
         </div>
+    @endsection
+    @push('scripts')
+        <script>
+            /* ---------------------------
+                                           LocalStorage für Gruppen
+                                        --------------------------- */
 
+            function getOpenGroups() {
 
-        <!-- KO PHASE -->
+                let stored = localStorage.getItem("openGroups")
+                return stored ? JSON.parse(stored) : []
 
-        @if($koRounds->count())
+            }
 
-        <h4 class="text-xl font-semibold text-white mt-10 mb-4">
-            KO Phase
-        </h4>
+            function saveOpenGroups(groups) {
 
-        @php $totalRounds = $koRounds->count(); @endphp
+                localStorage.setItem("openGroups", JSON.stringify(groups))
 
-        @foreach($koRounds as $roundNumber => $matches)
+            }
 
-        <div class="ko-round mb-6">
 
-            @php
-            $currentRoundIndex = $loop->index;
-            $roundFromEnd = $totalRounds - $currentRoundIndex;
-            @endphp
+            /* ---------------------------
+               Gruppenspiele anzeigen
+            --------------------------- */
 
-            <h5 class="text-gray-400 mb-2">
+            window.toggleGroupGames = function(groupId) {
 
-                @switch($roundFromEnd)
+                let el = document.getElementById("groupGames" + groupId)
 
-                @case(1) Finale @break
-                @case(2) Halbfinale @break
-                @case(3) Viertelfinale @break
-                @case(4) Achtelfinale @break
+                if (!el) return
 
-                @default Runde {{ $roundNumber }}
+                el.classList.toggle("hidden")
 
-                @endswitch
+                let openGroups = getOpenGroups()
 
-            </h5>
+                if (!el.classList.contains("hidden")) {
 
-            @foreach($matches as $match)
+                    if (!openGroups.includes(groupId)) openGroups.push(groupId)
 
-            <div class="match-card border-b border-gray-800 py-2"
-                data-match="{{ $match->id }}"
-                data-player1="{{ $match->player1_id }}"
-                data-player2="{{ $match->player2_id }}">
+                } else {
 
-                <div class="flex justify-between text-sm">
+                    openGroups = openGroups.filter(id => id != groupId)
 
-                    <span class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
-                        {{ $match->player1->name ?? formatSource($match->player1_source) }}
-                    </span>
+                }
 
-                    <span class="score text-gray-400">
-                        {{ $match->player1_score }} : {{ $match->player2_score }}
-                    </span>
+                saveOpenGroups(openGroups)
 
-                    <span class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
-                        {{ $match->player2->name ?? formatSource($match->player2_source) }}
-                    </span>
+            }
 
-                </div>
 
-            </div>
+            /* ---------------------------
+               Spielerfilter
+            --------------------------- */
 
-            @endforeach
+            function applyPlayerFilter(player) {
 
-        </div>
+                /* Gruppen filtern */
 
-        @endforeach
+                document.querySelectorAll(".group-block").forEach(group => {
 
-        @endif
+                    let players = group.dataset.players.split(",")
 
-    </div>
+                    group.style.display =
+                        player === "" || players.includes(player) ?
+                        "block" :
+                        "none"
 
-    @if($tournament->has_third_place && $thirdPlaceMatches->count())
+                })
 
-    <div class="ko-round mb-6">
 
-        <h5 class="text-gray-400 mb-2">Spiel um Platz 3</h5>
+                /* Matches filtern */
 
-        @foreach($thirdPlaceMatches as $match)
+                document.querySelectorAll(".match-card").forEach(match => {
 
-        <div class="match-card"
-            data-player1="{{ $match->player1_id }}"
-            data-player2="{{ $match->player2_id }}">
+                    let p1 = match.dataset.player1
+                    let p2 = match.dataset.player2
 
-            <div class="match-row">
+                    match.style.display =
+                        player === "" || p1 == player || p2 == player ?
+                        "block" :
+                        "none"
 
-                <span class="{{ $match->winner_id == $match->player1_id ? 'winner' : '' }}">
-                    {{ $match->player1->name ?? formatSource($match->player1_source) }}
-                </span>
+                })
 
-                <span class="score">
-                    {{ $match->player1_score }} : {{ $match->player2_score }}
-                </span>
 
-                <span class="{{ $match->winner_id == $match->player2_id ? 'winner' : '' }}">
-                    {{ $match->player2->name ?? formatSource($match->player2_source) }}
-                </span>
+                /* leere KO Runden verstecken */
 
-            </div>
+                document.querySelectorAll(".ko-round").forEach(round => {
 
-        </div>
+                    let visible = round.querySelectorAll(".match-card:not([style*='display: none'])")
 
-        @endforeach
-    </div>
-    @endif
-    @if(isset($winner) && $winner)
+                    round.style.display = visible.length ? "block" : "none"
 
-    <div class="mt-12 text-center">
+                })
 
-        <h3 class="text-xl font-bold mb-6">
-            🏆 Siegertreppchen
-        </h3>
+            }
 
-        <div class="flex justify-center items-end gap-6">
 
-            {{-- Platz 2 --}}
-            <div class="text-center">
+            /* ---------------------------
+               Seite geladen
+            --------------------------- */
 
-                <div class="bg-gray-700 px-6 py-4 rounded-t-lg">
-                    🥈
-                </div>
+            document.addEventListener("DOMContentLoaded", function() {
 
-                <div class="bg-gray-600 px-6 py-2 font-semibold">
-                    {{ $secondPlace->name ?? '—' }}
-                </div>
+                /* Spielerfilter */
 
-                <div class="bg-gray-500 px-6 py-2 text-sm">
-                    Platz 2
-                </div>
+                let filter = document.getElementById("playerFilter")
 
-            </div>
+                if (filter) {
 
+                    let savedPlayer = localStorage.getItem("followPlayerFilter")
 
-            {{-- Platz 1 --}}
-            <div class="text-center scale-110">
+                    if (savedPlayer) {
 
-                <div class="bg-yellow-500 px-8 py-6 rounded-t-lg text-2xl">
-                    🏆
-                </div>
+                        filter.value = savedPlayer
+                        applyPlayerFilter(savedPlayer)
 
-                <div class="bg-yellow-400 px-8 py-3 font-bold text-black">
-                    {{ $winner->name }}
-                </div>
+                    }
 
-                <div class="bg-yellow-300 px-8 py-2 text-sm text-black">
-                    Sieger
-                </div>
+                    filter.addEventListener("change", function() {
 
-            </div>
+                        let player = this.value
 
+                        localStorage.setItem("followPlayerFilter", player)
 
-            {{-- Platz 3 --}}
-            <div class="text-center">
-
-                <div class="bg-orange-700 px-6 py-3 rounded-t-lg">
-                    🥉
-                </div>
-
-                <div class="bg-orange-600 px-6 py-2 font-semibold">
-                    {{ $thirdPlace->name ?? '—' }}
-                </div>
-
-                <div class="bg-orange-500 px-6 py-2 text-sm">
-                    Platz 3
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    @endif
-
-</div>
-
-@endsection
-
-
-@push('scripts')
-
-<script>
-    const dice = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
-
-    function rollDice() {
-
-        document.querySelectorAll(".dice-container span").forEach(d => {
-            d.innerText = dice[Math.floor(Math.random() * 6)]
-        })
-
-    }
-
-    setInterval(() => {
-
-        document.querySelectorAll(".dice-container").forEach(container => {
-
-            container.innerHTML = `
-            <span>${dice[Math.floor(Math.random()*6)]}</span>
-            <span>${dice[Math.floor(Math.random()*6)]}</span>
-            <span>${dice[Math.floor(Math.random()*6)]}</span>
-        `
-
-        })
-
-    }, 200)
-    /* gespeicherte offene Gruppen */
-
-    function getOpenGroups() {
-
-        let stored = localStorage.getItem("openGroups")
-        return stored ? JSON.parse(stored) : []
-
-    }
-
-    function saveOpenGroups(groups) {
-
-        localStorage.setItem("openGroups", JSON.stringify(groups))
-
-    }
-
-
-
-    /* Spielerfilter */
-
-    function applyPlayerFilter(player) {
-
-        document.querySelectorAll(".group-block").forEach(group => {
-
-            let players = group.dataset.players.split(",")
-
-            group.style.display =
-                player === "" || players.includes(player) ? "block" : "none"
-
-        })
-
-
-        document.querySelectorAll(".match-card").forEach(match => {
-
-            let p1 = match.dataset.player1
-            let p2 = match.dataset.player2
-
-            match.style.display =
-                player === "" || p1 == player || p2 == player ?
-                "block" :
-                "none"
-
-        })
-
-        document.querySelectorAll(".ko-round").forEach(round => {
-
-            let visible = round.querySelectorAll(".match-card:not([style*='display: none'])")
-
-            round.style.display = visible.length ? "block" : "none"
-
-        })
-
-    }
-
-
-
-    /* Gruppenspiele toggeln */
-
-    window.toggleGroupGames = function(groupId) {
-
-        let el = document.getElementById("groupGames" + groupId)
-        if (!el) return
-
-        el.classList.toggle("hidden")
-
-        let openGroups = getOpenGroups()
-
-        if (!el.classList.contains("hidden")) {
-
-            if (!openGroups.includes(groupId)) openGroups.push(groupId)
-
-        } else {
-
-            openGroups = openGroups.filter(id => id != groupId)
-
-        }
-
-        saveOpenGroups(openGroups)
-
-    }
-
-
-
-    /* AJAX LIVE UPDATE */
-
-    function refreshFollow() {
-
-        fetch(window.location.pathname + "/data")
-            .then(res => res.json())
-            .then(data => {
-
-                data.ko?.forEach?.(() => {})
-
-                data.groups.forEach(group => {
-
-                    group.games.forEach(match => {
-
-                        let el = document.querySelector(`[data-match="${match.id}"]`)
-
-                        if (!el) return
-
-                        let score = el.querySelector(".score")
-
-                        score.innerText =
-                            (match.player1_score ?? "") +
-                            " : " +
-                            (match.player2_score ?? "")
+                        applyPlayerFilter(player)
 
                     })
+
+                }
+
+
+                /* offene Gruppen wieder öffnen */
+
+                let openGroups = getOpenGroups()
+
+                openGroups.forEach(groupId => {
+
+                    let el = document.getElementById("groupGames" + groupId)
+
+                    if (el) el.classList.remove("hidden")
 
                 })
 
             })
 
-    }
+            function refreshFollow() {
 
-    setInterval(refreshFollow, 5000)
+                fetch(window.location.pathname)
+                    .then(res => res.text())
+                    .then(html => {
 
+                        let parser = new DOMParser()
+                        let doc = parser.parseFromString(html, "text/html")
 
+                        let newContent = doc.querySelector("#followContent")
 
-    /* Seite geladen */
+                        document.querySelector("#followContent").innerHTML =
+                            newContent.innerHTML
 
-    document.addEventListener("DOMContentLoaded", function() {
-
-        let filter = document.getElementById("playerFilter")
-
-        if (filter) {
-
-            let savedPlayer = localStorage.getItem("followPlayerFilter")
-
-            if (savedPlayer) {
-
-                filter.value = savedPlayer
-                applyPlayerFilter(savedPlayer)
+                    })
 
             }
 
-            filter.addEventListener("change", function() {
-
-                let player = this.value
-
-                localStorage.setItem("followPlayerFilter", player)
-
-                applyPlayerFilter(player)
-
-            })
-
-        }
-
-
-        /* offene Gruppen wieder öffnen */
-
-        let openGroups = getOpenGroups()
-
-        openGroups.forEach(groupId => {
-
-            let el = document.getElementById("groupGames" + groupId)
-
-            if (el) el.classList.remove("hidden")
-
-        })
-
-    })
-</script>
-
-@endpush
+            setInterval(refreshFollow, 5000)
+        </script>
+    @endpush

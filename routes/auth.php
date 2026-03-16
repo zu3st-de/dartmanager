@@ -17,10 +17,11 @@ Route::middleware('guest')->group(function () {
             ->name('register');
 
         Route::post('register', [RegisteredUserController::class, 'store']);
+    } else {
+        Route::get('register', function () {
+            abort(403, 'Registrierung derzeit deaktiviert');
+        });
     }
-    Route::get('register', function () {
-        abort(403, 'Registrierung derzeit deaktiviert');
-    });
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 

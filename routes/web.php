@@ -16,7 +16,6 @@ Route::get('/', function () {
 | Öffentliche Seiten (kein Login nötig)
 |--------------------------------------------------------------------------
 */
-
 Route::get(
     '/follow/{tournament}',
     [PublicController::class, 'follow']
