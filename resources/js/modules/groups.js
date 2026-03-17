@@ -75,3 +75,43 @@ export function initGroups() {
     }
 
 }
+function reloadGroup(groupId) {
+
+    fetch(`/groups/${groupId}/table`)
+        .then(res => res.text())
+        .then(html => {
+
+            document.querySelector(`[data-group-table="${groupId}"]`)
+                .innerHTML = html;
+
+        });
+}
+document.addEventListener('submit', e => {
+
+    if (!e.target.classList.contains('group-score-form')) return;
+
+    e.preventDefault();
+
+    const form = e.target;
+    const groupId = form.dataset.group;
+
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        }
+    })
+        .then(res => res.json())
+        .then(data => {
+
+            if (data.success) {
+
+                reloadGroup(groupId); // 🔥 Tabelle neu laden
+
+            }
+
+        });
+
+});

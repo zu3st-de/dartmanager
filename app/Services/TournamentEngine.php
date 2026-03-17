@@ -188,30 +188,35 @@ class TournamentEngine
      */
     private function tryFinishTournament(Tournament $tournament): void
     {
-        $totalRounds = $this->getTotalRounds($tournament);
 
-        $finalFinished = Game::where('tournament_id', $tournament->id)
-            ->where('round', $totalRounds)
+        // 🔥 Finale laden
+        $finalGame = Game::where('tournament_id', $tournament->id)
             ->where('is_third_place', false)
-            ->whereNotNull('winner_id')
-            ->exists();
+            ->whereNull('group_id')
+            ->orderByDesc('round')
+            ->first();
 
-        if (!$finalFinished) {
+        // ❌ kein Finale oder nicht entschieden
+        if (!$finalGame || !$finalGame->winner_id) {
             return;
         }
 
-        if ($tournament->has_third_place) {
-
-            $thirdFinished = Game::where('tournament_id', $tournament->id)
-                ->where('is_third_place', true)
-                ->whereNotNull('winner_id')
-                ->exists();
-
-            if (!$thirdFinished) {
-                return;
-            }
+        // 🔥 Kein Platz 3 → sofort fertig
+        if (!$tournament->has_third_place) {
+            $tournament->update(['status' => 'finished']);
+            return;
         }
 
+        // 🔥 Platz 3 prüfen
+        $thirdGame = Game::where('tournament_id', $tournament->id)
+            ->where('is_third_place', true)
+            ->first();
+
+        if (!$thirdGame || !$thirdGame->winner_id) {
+            return;
+        }
+
+        // 🔥 Beide fertig → Turnier fertig
         $tournament->update([
             'status' => 'finished'
         ]);

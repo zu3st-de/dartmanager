@@ -178,6 +178,31 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/admin/tv', [TvController::class, 'manage']);
     Route::post('/admin/tv', [TvController::class, 'save']);
+    Route::get('/games/{game}/html', function (App\Models\Game $game) {
+        return view('tournaments.partials._ko_game', [
+            'game' => $game->fresh(['player1', 'player2']),
+            'tournament' => $game->tournament,
+            'maxRound' => $game->tournament->games()->max('round'),
+        ]);
+    });
+});
+Route::get('/games/{game}/next', function (App\Models\Game $game) {
+
+    if ($game->group_id !== null || $game->round === null) {
+        return response()->json(['next_game_id' => null]);
+    }
+
+    $nextRound = $game->round + 1;
+    $nextPosition = (int) ceil($game->position / 2);
+
+    $nextGame = App\Models\Game::where('tournament_id', $game->tournament_id)
+        ->where('round', $nextRound)
+        ->where('position', $nextPosition)
+        ->first();
+
+    return response()->json([
+        'next_game_id' => $nextGame?->id
+    ]);
 });
 
 require __DIR__ . '/auth.php';

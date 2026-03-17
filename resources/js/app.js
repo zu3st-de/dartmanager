@@ -1,4 +1,5 @@
 import './bootstrap';
+import './bracket';
 
 import Alpine from 'alpinejs';
 import { initPlayers } from './modules/players';

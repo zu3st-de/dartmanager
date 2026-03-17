@@ -1,139 +1,197 @@
-document.addEventListener("DOMContentLoaded", () => {
+/*
+|--------------------------------------------------------------------------
+| 🎯 BRACKET.JS (FINAL VERSION)
+|--------------------------------------------------------------------------
+|
+| Features:
+| - Best-of ändern (AJAX)
+| - Score speichern (AJAX)
+| - Ergebnis löschen (AJAX)
+| - Einzelnes Spiel neu laden (kein Layout-Bruch)
+|
+| WICHTIG:
+| - Server rendert HTML
+| - JS ersetzt nur das betroffene Spiel
+|
+*/
 
-    const svg = document.getElementById("bracket");
-    const matches = window.matches ?? [];
+/*
+|--------------------------------------------------------------------------
+| 🔧 HELPER: CSRF TOKEN
+|--------------------------------------------------------------------------
+*/
+function csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]').content;
+}
 
-    if (!svg || matches.length === 0) return;
+/*
+|--------------------------------------------------------------------------
+| 🔄 GAME NEU LADEN (ZENTRAL!)
+|--------------------------------------------------------------------------
+|
+| Lädt das HTML eines Spiels neu vom Server
+| und ersetzt es im DOM
+|
+*/
+function reloadGame(gameId) {
+    fetch(`/games/${gameId}/html`)
+        .then(res => res.text())
+        .then(html => {
+            const wrapper = document.querySelector(`[data-game="${gameId}"]`);
+            if (!wrapper) return;
 
-    const MATCH_W = 220;
-    const MATCH_H = 36;
+            // 🔥 ersetzt komplettes Spiel
+            wrapper.outerHTML = html;
+        });
+}
 
-    const CENTER_X = 900;
-    const START_Y = 120;
-    const X_STEP = 260;
-    const Y_STEP = 70;
+/*
+|--------------------------------------------------------------------------
+| 🏆 BEST-OF ÄNDERN (GLOBAL)
+|--------------------------------------------------------------------------
+|
+| Wird direkt aus Blade aufgerufen (onchange)
+|
+*/
+window.updateBestOf = function (el, tournamentId, round) {
 
-    function el(type) {
-        return document.createElementNS("http://www.w3.org/2000/svg", type);
-    }
+    fetch(`/tournaments/${tournamentId}/round/${round}/best-of`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken()
+        },
+        body: JSON.stringify({
+            best_of: el.value
+        })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
 
-    function drawMatch(x, y, text) {
+                // ✅ visuelles Feedback
+                el.style.border = '2px solid #22c55e';
+                setTimeout(() => el.style.border = '', 800);
 
-        const r = el("rect");
-        r.setAttribute("x", x);
-        r.setAttribute("y", y);
-        r.setAttribute("width", MATCH_W);
-        r.setAttribute("height", MATCH_H);
-        r.setAttribute("rx", "6");
-        r.setAttribute("fill", "#1f2937");
+            } else {
+                alert(data.message || 'Fehler');
+            }
+        });
+};
 
-        svg.appendChild(r);
-
-        const t = el("text");
-        t.setAttribute("x", x + 10);
-        t.setAttribute("y", y + 22);
-        t.setAttribute("fill", "white");
-
-        t.textContent = text;
-
-        svg.appendChild(t);
-    }
+/*
+|--------------------------------------------------------------------------
+| 🚀 DOM READY
+|--------------------------------------------------------------------------
+*/
+document.addEventListener('DOMContentLoaded', () => {
 
     /*
-    Matches sortieren
+    |--------------------------------------------------------------------------
+    | 📝 SCORE FORM (AJAX)
+    |--------------------------------------------------------------------------
     */
+    document.addEventListener('submit', function (e) {
 
-    matches.sort((a, b) => {
-        if (a.round === b.round) {
-            return a.position - b.position;
-        }
-        return a.round - b.round;
+        if (!e.target.classList.contains('score-form')) return;
+
+        e.preventDefault();
+
+        const form = e.target;
+        const url = form.action;
+        const gameId = form.dataset.game;
+
+        const formData = new FormData(form);
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken(),
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+
+                if (data.success) {
+
+                    reloadGameChain(gameId);
+
+                } else {
+                    alert(data.message || 'Fehler');
+                }
+
+            })
+            .catch(() => alert('Serverfehler'));
+
     });
 
-    /*
-    Matches nach Runde gruppieren
-    */
-
-    const rounds = {};
-
-    matches.forEach(m => {
-        if (!rounds[m.round]) rounds[m.round] = [];
-        rounds[m.round].push(m);
-    });
-
-    const roundNumbers = Object.keys(rounds)
-        .map(Number)
-        .sort((a, b) => a - b);
-
-    const finalRound = Math.max(...roundNumbers);
 
     /*
-    Finale
+    |--------------------------------------------------------------------------
+    | 🗑 RESET FORM (AJAX)
+    |--------------------------------------------------------------------------
     */
+    document.addEventListener('submit', function (e) {
 
-    const finalMatch = rounds[finalRound][0];
+        if (!e.target.classList.contains('reset-form')) return;
 
-    const fp1 = finalMatch.player1?.name ?? "TBD";
-    const fp2 = finalMatch.player2?.name ?? "TBD";
+        e.preventDefault();
 
-    drawMatch(CENTER_X, 400, `${fp1} vs ${fp2}`);
+        if (!confirm('Ergebnis wirklich löschen?')) return;
 
-    /*
-    Halbfinale
-    */
+        const form = e.target;
+        const url = form.action;
+        const gameId = form.dataset.game;
 
-    const semi = rounds[finalRound - 1] ?? [];
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken(),
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
 
-    semi.forEach((m, i) => {
+                if (data.success) {
 
-        const x = i === 0 ? CENTER_X - X_STEP : CENTER_X + X_STEP;
-        const y = 300;
+                    reloadGameChain(gameId);
 
-        const p1 = m.player1?.name ?? "TBD";
-        const p2 = m.player2?.name ?? "TBD";
+                } else {
+                    alert(data.message || 'Fehler');
+                }
 
-        drawMatch(x, y, `${p1} vs ${p2}`);
-
-    });
-
-    /*
-    Viertelfinale
-    */
-
-    const quarter = rounds[finalRound - 2] ?? [];
-
-    quarter.forEach((m, i) => {
-
-        const side = i < 2 ? -1 : 1;
-
-        const x = CENTER_X + side * (X_STEP * 2);
-        const y = START_Y + (i % 2) * 200;
-
-        const p1 = m.player1?.name ?? "TBD";
-        const p2 = m.player2?.name ?? "TBD";
-
-        drawMatch(x, y, `${p1} vs ${p2}`);
-
-    });
-
-    /*
-    Achtelfinale
-    */
-
-    const eighth = rounds[1] ?? [];
-
-    eighth.forEach((m, i) => {
-
-        const side = i < 4 ? -1 : 1;
-
-        const x = CENTER_X + side * (X_STEP * 3);
-        const y = START_Y + (i % 4) * Y_STEP;
-
-        const p1 = m.player1?.name ?? "TBD";
-        const p2 = m.player2?.name ?? "TBD";
-
-        drawMatch(x, y, `${p1} vs ${p2}`);
+            })
+            .catch(() => alert('Serverfehler'));
 
     });
 
 });
+
+function reloadGameChain(gameId) {
+
+    if (!gameId) return;
+
+    // 🔹 aktuelles Spiel neu laden
+    reloadGame(gameId);
+
+    // 🔹 danach nächstes Spiel holen
+    fetch(`/games/${gameId}/next`)
+        .then(res => res.json())
+        .then(data => {
+
+            if (data.next_game_id) {
+
+                // 🔥 recursion!
+                setTimeout(() => {
+                    reloadGameChain(data.next_game_id);
+                }, 50); // kleiner Delay für DOM Stabilität
+
+            }
+
+        });
+}

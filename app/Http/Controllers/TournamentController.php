@@ -1237,7 +1237,43 @@ class TournamentController extends Controller
     |
     */
 
+        /*
+|--------------------------------------------------------------------------
+| JSON Response (AJAX)
+|--------------------------------------------------------------------------
+|
+| Wird z.B. bei Live-Score Eingabe verwendet.
+| Zusätzlich wird das nächste Spiel zurückgegeben,
+| damit das Frontend dieses ebenfalls neu laden kann.
+|
+*/
+
         if ($request->expectsJson()) {
+
+            /*
+|--------------------------------------------------------------------------
+| Nächstes KO-Spiel bestimmen
+|--------------------------------------------------------------------------
+*/
+
+            $nextGame = null;
+
+            if ($game->group_id === null && $game->round !== null) {
+
+                $nextRound = $game->round + 1;
+                $nextPosition = (int) ceil($game->position / 2);
+
+                $nextGame = Game::where('tournament_id', $tournament->id)
+                    ->where('round', $nextRound)
+                    ->where('position', $nextPosition)
+                    ->first();
+            }
+
+            /*
+|--------------------------------------------------------------------------
+| JSON Antwort zurückgeben
+|--------------------------------------------------------------------------
+*/
 
             return response()->json([
                 'success' => true,
@@ -1245,6 +1281,9 @@ class TournamentController extends Controller
                 'winner_id' => $game->winner_id,
                 'player1_score' => $game->player1_score,
                 'player2_score' => $game->player2_score,
+
+                // 🔥 NEU
+                'next_game_id' => $nextGame?->id,
             ]);
         }
 
@@ -1765,6 +1804,99 @@ class TournamentController extends Controller
     }
     /*
 |--------------------------------------------------------------------------
+| Best-of für KO Runden ändern
+|--------------------------------------------------------------------------
+|
+| Diese Methode erlaubt es, den Best-of Wert
+| für eine bestimmte KO-Runde zu ändern.
+|
+| Beispiel:
+|
+| Runde 1 → Best-of 3
+| Runde 2 → Best-of 5
+| Finale → Best-of 7
+|
+| Ablauf:
+|
+| 1. Sicherheitsprüfung
+| 2. Eingabedaten validieren
+| 3. Spiele der Runde aktualisieren
+| 4. JSON Response zurückgeben
+|
+| Route:
+| PATCH /tournaments/{tournament}/round/{round}/best-of
+|
+*/
+
+    public function updateRoundBestOf(Request $request, Tournament $tournament, int $round)
+    {
+        /*
+|--------------------------------------------------------------------------
+| Sicherheitsprüfung
+|--------------------------------------------------------------------------
+*/
+
+        $this->authorizeTournament($tournament);
+
+
+        /*
+|--------------------------------------------------------------------------
+| Eingabedaten validieren
+|--------------------------------------------------------------------------
+*/
+
+        $validated = $request->validate([
+            'best_of' => ['required', 'integer', 'min:1'],
+        ]);
+
+
+        /*
+|--------------------------------------------------------------------------
+| Spiele der entsprechenden KO-Runde aktualisieren
+|--------------------------------------------------------------------------
+|
+| Es werden alle Spiele ohne Gruppe (KO Spiele)
+| in der angegebenen Runde aktualisiert.
+|
+*/
+
+        $updated = Game::where('tournament_id', $tournament->id)
+            ->whereNull('group_id') // 🔥 wichtig: nur KO Spiele!
+            ->where('round', $round)
+            ->update([
+                'best_of' => $validated['best_of'],
+            ]);
+
+
+        /*
+|--------------------------------------------------------------------------
+| Prüfen ob Spiele gefunden wurden
+|--------------------------------------------------------------------------
+*/
+
+        if ($updated === 0) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Keine Spiele in dieser Runde gefunden.',
+            ], 404);
+        }
+
+
+        /*
+|--------------------------------------------------------------------------
+| Erfolgreiche JSON Antwort
+|--------------------------------------------------------------------------
+*/
+
+        return response()->json([
+            'success' => true,
+            'round' => $round,
+            'best_of' => $validated['best_of'],
+        ]);
+    }
+    /*
+|--------------------------------------------------------------------------
 | TURNIER RESET
 |--------------------------------------------------------------------------
 */
@@ -1883,43 +2015,40 @@ class TournamentController extends Controller
 | 1. Sicherheitsprüfung
 | 2. Spielscore löschen
 | 3. Gewinner entfernen
-| 4. Falls KO-Spiel → nächsten Gegner entfernen
-|
-| Beispiel:
-|
-| Viertelfinale
-| A gewinnt gegen B
-|
-| → Halbfinale bekommt Spieler A
-|
-| Wenn das Viertelfinale zurückgesetzt wird,
-| muss Spieler A auch aus dem Halbfinale entfernt werden.
+| 4. Rekursiv alle Folge-Spiele korrigieren
+| 5. Spiel um Platz 3 berücksichtigen
+| 6. JSON Response für AJAX zurückgeben
 |
 */
 
-    public function resetGame(Game $game)
+    public function resetGame(Request $request, Game $game)
     {
         $tournament = $game->tournament;
 
         /*
-    |--------------------------------------------------------------------------
-    | Sicherheitsprüfung
-    |--------------------------------------------------------------------------
-    */
+|--------------------------------------------------------------------------
+| Sicherheitsprüfung
+|--------------------------------------------------------------------------
+*/
 
         $this->authorizeTournament($tournament);
 
+
+        /*
+|--------------------------------------------------------------------------
+| Reset innerhalb einer Transaktion
+|--------------------------------------------------------------------------
+*/
 
         DB::transaction(function () use ($game, $tournament) {
 
             $oldWinnerId = $game->winner_id;
 
-
             /*
-        |--------------------------------------------------------------------------
-        | Spiel selbst zurücksetzen
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | Spiel selbst zurücksetzen
+    |--------------------------------------------------------------------------
+    */
 
             $game->update([
                 'player1_score' => null,
@@ -1930,59 +2059,122 @@ class TournamentController extends Controller
 
 
             /*
-        |--------------------------------------------------------------------------
-        | Wenn KO-Spiel → Folge-Spiel korrigieren
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | KO-Folge-Spiele rekursiv korrigieren
+    |--------------------------------------------------------------------------
+    */
+
+            if ($game->group_id === null && $game->round !== null) {
+                $this->resetNextGames($game, $oldWinnerId);
+            }
+
+
+            /*
+    |--------------------------------------------------------------------------
+    | 🥉 Spiel um Platz 3 korrigieren
+    |--------------------------------------------------------------------------
+    |
+    | Wenn ein Halbfinale betroffen ist, müssen wir auch
+    | das Spiel um Platz 3 bereinigen.
+    |
+    */
 
             if ($game->group_id === null && $game->round !== null) {
 
-                $nextRound = $game->round + 1;
-                $nextPosition = (int) ceil($game->position / 2);
+                $maxRound = Game::where('tournament_id', $tournament->id)
+                    ->whereNull('group_id')
+                    ->where('is_third_place', false)
+                    ->max('round');
 
+                $semiFinalRound = $maxRound - 1;
 
-                $nextGame = Game::where('tournament_id', $tournament->id)
-                    ->where('round', $nextRound)
-                    ->where('position', $nextPosition)
-                    ->first();
+                if ($game->round === $semiFinalRound) {
 
+                    $thirdPlaceGame = Game::where('tournament_id', $tournament->id)
+                        ->where('is_third_place', true)
+                        ->first();
 
-                if ($nextGame && $oldWinnerId) {
+                    if ($thirdPlaceGame && $oldWinnerId) {
 
-                    /*
-                |------------------------------------------------------
-                | Gewinner aus nächstem Spiel entfernen
-                |------------------------------------------------------
+                        $changed = false;
+
+                        /*
+                |----------------------------------------------------------
+                | Spieler entfernen (NUR IDs!)
+                |----------------------------------------------------------
                 */
 
-                    if ($nextGame->player1_id === $oldWinnerId) {
-                        $nextGame->player1_id = null;
-                    }
+                        if ($thirdPlaceGame->player1_id === $oldWinnerId) {
+                            $thirdPlaceGame->player1_id = null;
+                            $changed = true;
+                        }
 
-                    if ($nextGame->player2_id === $oldWinnerId) {
-                        $nextGame->player2_id = null;
-                    }
+                        if ($thirdPlaceGame->player2_id === $oldWinnerId) {
+                            $thirdPlaceGame->player2_id = null;
+                            $changed = true;
+                        }
 
-
-                    /*
-                |------------------------------------------------------
-                | Falls Gegner fehlt → Ergebnis löschen
-                |------------------------------------------------------
+                        /*
+                |----------------------------------------------------------
+                | Ergebnis löschen wenn nötig
+                |----------------------------------------------------------
                 */
 
-                    if (!$nextGame->player1_id || !$nextGame->player2_id) {
+                        if ($changed) {
+                            $thirdPlaceGame->player1_score = null;
+                            $thirdPlaceGame->player2_score = null;
+                            $thirdPlaceGame->winner_id     = null;
+                            $thirdPlaceGame->winning_rest  = null;
 
-                        $nextGame->player1_score = null;
-                        $nextGame->player2_score = null;
-                        $nextGame->winner_id     = null;
-                        $nextGame->winning_rest  = null;
+                            $thirdPlaceGame->save();
+                        }
                     }
-
-                    $nextGame->save();
                 }
             }
         });
 
+
+        /*
+|--------------------------------------------------------------------------
+| Nächstes Spiel bestimmen (für AJAX)
+|--------------------------------------------------------------------------
+*/
+
+        $nextGame = null;
+
+        if ($game->group_id === null && $game->round !== null) {
+
+            $nextRound = $game->round + 1;
+            $nextPosition = (int) ceil($game->position / 2);
+
+            $nextGame = Game::where('tournament_id', $tournament->id)
+                ->where('round', $nextRound)
+                ->where('position', $nextPosition)
+                ->first();
+        }
+
+
+        /*
+|--------------------------------------------------------------------------
+| JSON Response (AJAX)
+|--------------------------------------------------------------------------
+*/
+
+        if ($request->expectsJson()) {
+
+            return response()->json([
+                'success' => true,
+                'game_id' => $game->id,
+                'next_game_id' => $nextGame?->id,
+            ]);
+        }
+
+
+        /*
+|--------------------------------------------------------------------------
+| Standard Redirect
+|--------------------------------------------------------------------------
+*/
 
         return back()->with('success', 'Spiel erfolgreich zurückgesetzt.');
     }
@@ -2004,7 +2196,81 @@ class TournamentController extends Controller
 | erhalten.
 |
 */
+    private function resetNextGames(Game $game, ?int $oldWinnerId): void
+    {
+        /*
+|--------------------------------------------------------------------------
+| Abbruchbedingungen
+|--------------------------------------------------------------------------
+*/
 
+        if ($game->group_id !== null || $game->round === null) {
+            return;
+        }
+
+        /*
+|--------------------------------------------------------------------------
+| Nächstes Spiel bestimmen
+|--------------------------------------------------------------------------
+*/
+
+        $nextRound = $game->round + 1;
+        $nextPosition = (int) ceil($game->position / 2);
+
+        $nextGame = Game::where('tournament_id', $game->tournament_id)
+            ->where('round', $nextRound)
+            ->where('position', $nextPosition)
+            ->first();
+
+        if (!$nextGame) {
+            return;
+        }
+
+        /*
+|--------------------------------------------------------------------------
+| Spieler entfernen
+|--------------------------------------------------------------------------
+*/
+
+        $changed = false;
+
+        if ($nextGame->player1_id === $oldWinnerId) {
+            $nextGame->player1_id = null;
+            $changed = true;
+        }
+
+        if ($nextGame->player2_id === $oldWinnerId) {
+            $nextGame->player2_id = null;
+            $changed = true;
+        }
+
+        /*
+|--------------------------------------------------------------------------
+| Ergebnis zurücksetzen wenn notwendig
+|--------------------------------------------------------------------------
+*/
+
+        if ($changed) {
+
+            $nextGame->player1_score = null;
+            $nextGame->player2_score = null;
+            $nextGame->winner_id     = null;
+            $nextGame->winning_rest  = null;
+
+            $nextGame->save();
+
+            /*
+|--------------------------------------------------------------------------
+| 🔥 REKURSION
+|--------------------------------------------------------------------------
+|
+| Jetzt geht's eine Ebene weiter hoch
+|
+*/
+
+            $this->resetNextGames($nextGame, $oldWinnerId);
+        }
+    }
     public function resetKo(Tournament $tournament)
     {
         $this->authorizeTournament($tournament);
