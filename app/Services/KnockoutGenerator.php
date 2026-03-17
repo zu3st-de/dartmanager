@@ -6,26 +6,45 @@ use App\Models\Tournament;
 use App\Models\Game;
 
 /**
+ * ================================================================
  * KnockoutGenerator
+ * ================================================================
  *
- * Diese Klasse ist für alles verantwortlich,
- * was mit dem KO-Baum zu tun hat:
+ * Verantwortlich für den kompletten Aufbau des KO-Baums.
  *
- * - KO Baum erzeugen
- * - Bracket mit Quellen erstellen (A1 vs B2 etc.)
- * - Spieler später in den Baum einsetzen
+ * Aufgaben:
+ *
+ * - KO-Bracket als Platzhalter erzeugen (ohne Spieler)
+ * - Gruppenquellen korrekt in die erste Runde setzen (A1, B2, ...)
+ * - Turnier-Seeding (1 vs 8, 4 vs 5, ...)
+ * - Spieler später in Runde 1 einsetzen (optional)
+ *
+ * WICHTIG:
+ *
+ * - Diese Klasse erstellt nur die STRUKTUR
+ * - KEINE Spiellogik (→ übernimmt TournamentEngine)
+ *
+ * ================================================================
  */
 class KnockoutGenerator
 {
 
     /**
-     * ------------------------------------------------------------
-     * KO Bracket Platzhalter erzeugen
-     * ------------------------------------------------------------
+     * ============================================================
+     * PLACEHOLDER-BRACKET ERZEUGEN
+     * ============================================================
      *
-     * Wird beim Start eines Group+KO Turniers aufgerufen.
+     * Wird beim Turnierstart (group_ko) aufgerufen.
      *
-     * Beispiel für 8 Spieler:
+     * Erstellt:
+     *
+     * - komplette KO-Struktur
+     * - inkl. aller Runden
+     * - inkl. Quellen (A1, B2, W1, ...)
+     *
+     * KEINE Spieler werden gesetzt!
+     *
+     * Beispiel (8 Spieler):
      *
      * Runde 1:
      * A1 vs B2
@@ -40,20 +59,19 @@ class KnockoutGenerator
      * Runde 3:
      * W1 vs W2
      */
-    public function generatePlaceholderBracket(Tournament $tournament, int $size)
+    public function generatePlaceholderBracket(Tournament $tournament, int $size): void
     {
-
         $rounds = (int) log($size, 2);
 
         $sources = $this->generateGroupSources($tournament);
 
         $position = 1;
 
-        /**
-         * ------------------------------------------------------------
-         * Erste KO Runde erstellen
-         * ------------------------------------------------------------
-         */
+        /*
+        |--------------------------------------------------------------------------
+        | 1. Erste KO-Runde (mit Gruppenquellen)
+        |--------------------------------------------------------------------------
+        */
 
         for ($i = 0; $i < $size; $i += 2) {
 
@@ -72,17 +90,16 @@ class KnockoutGenerator
 
                 'best_of' => $tournament->ko_best_of ?? 3,
 
-                'is_group_match' => false,
                 'is_third_place' => false,
             ]);
         }
 
 
-        /**
-         * ------------------------------------------------------------
-         * Weitere KO Runden vorbereiten
-         * ------------------------------------------------------------
-         */
+        /*
+        |--------------------------------------------------------------------------
+        | 2. Weitere KO-Runden (Winner-Bracket)
+        |--------------------------------------------------------------------------
+        */
 
         for ($round = 2; $round <= $rounds; $round++) {
 
@@ -97,6 +114,7 @@ class KnockoutGenerator
                     'player1_id' => null,
                     'player2_id' => null,
 
+                    // Gewinner der vorherigen Spiele
                     'player1_source' => 'W' . ($position * 2 - 1),
                     'player2_source' => 'W' . ($position * 2),
 
@@ -105,18 +123,17 @@ class KnockoutGenerator
 
                     'best_of' => $tournament->ko_best_of ?? 3,
 
-                    'is_group_match' => false,
                     'is_third_place' => false,
                 ]);
             }
         }
 
 
-        /**
-         * ------------------------------------------------------------
-         * Spiel um Platz 3 erzeugen
-         * ------------------------------------------------------------
-         */
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Spiel um Platz 3 (optional)
+        |--------------------------------------------------------------------------
+        */
 
         if ($tournament->has_third_place) {
 
@@ -127,47 +144,36 @@ class KnockoutGenerator
                 'player1_id' => null,
                 'player2_id' => null,
 
+                // Verlierer der Halbfinals
                 'player1_source' => 'L1',
                 'player2_source' => 'L2',
 
                 'round' => $rounds,
-                'position' => 99,
+                'position' => 99, // bewusst außerhalb normaler Struktur
 
                 'best_of' => $tournament->ko_best_of ?? 3,
 
-                'is_group_match' => false,
                 'is_third_place' => true,
             ]);
         }
     }
 
 
-
     /**
-     * ------------------------------------------------------------
-     * Spieler in den vorbereiteten KO Baum einsetzen
-     * ------------------------------------------------------------
+     * ============================================================
+     * SPIELER IN RUNDE 1 EINSETZEN
+     * ============================================================
      *
-     * Wird nach Abschluss der Gruppenphase aufgerufen.
+     * OPTIONAL:
      *
-     * Beispiel:
-     * Spielerliste:
+     * Wird verwendet für:
+     * - direktes KO-Turnier (ohne Gruppen)
      *
-     * A1
-     * B1
-     * C1
-     * D1
-     * A2
-     * B2
-     * C2
-     * D2
-     *
-     * Diese werden automatisch korrekt in die
-     * erste KO Runde eingesetzt.
+     * Bei group_ko:
+     * → NICHT nötig (→ startKo nutzt Sources!)
      */
     public function fillBracketPlayers(Tournament $tournament, $players): void
     {
-
         $players = collect($players)->values();
 
         $games = Game::where('tournament_id', $tournament->id)
@@ -175,7 +181,6 @@ class KnockoutGenerator
             ->where('round', 1)
             ->orderBy('position')
             ->get();
-
 
         foreach ($games as $index => $game) {
 
@@ -190,31 +195,25 @@ class KnockoutGenerator
     }
 
 
-
     /**
-     * ------------------------------------------------------------
-     * Gruppen-Seeds generieren
-     * ------------------------------------------------------------
+     * ============================================================
+     * GRUPPEN-SEEDS GENERIEREN
+     * ============================================================
      *
      * Beispiel:
      *
-     * Gruppe A,B,C,D
-     * Advance = 2
+     * Gruppen: A, B, C, D
+     * Advance: 2
      *
-     * Seeds:
+     * Ergebnis:
      *
-     * A1
-     * B1
-     * C1
-     * D1
-     * A2
-     * B2
-     * C2
-     * D2
+     * A1, B1, C1, D1, A2, B2, C2, D2
+     *
+     * Danach:
+     * → wird durch Seeding-Logik verteilt
      */
-    private function generateGroupSources(Tournament $tournament)
+    private function generateGroupSources(Tournament $tournament): array
     {
-
         $groups = $tournament->groups()
             ->orderBy('name')
             ->pluck('name')
@@ -235,22 +234,22 @@ class KnockoutGenerator
     }
 
 
-
     /**
-     * ------------------------------------------------------------
-     * Turnier-Seeding erzeugen
-     * ------------------------------------------------------------
+     * ============================================================
+     * SEEDING AUF BRACKET ANWENDEN
+     * ============================================================
      *
-     * Beispiel für 8 Seeds:
+     * Ziel:
+     *
+     * Klassisches Turnier-Seeding:
      *
      * 1 vs 8
      * 4 vs 5
      * 2 vs 7
      * 3 vs 6
      */
-    private function buildBracketOrder(array $seeds)
+    private function buildBracketOrder(array $seeds): array
     {
-
         $size = count($seeds);
 
         $positions = $this->generateSeedPositions($size);
@@ -265,26 +264,17 @@ class KnockoutGenerator
     }
 
 
-
     /**
-     * ------------------------------------------------------------
-     * Seed Positionen berechnen
-     * ------------------------------------------------------------
+     * ============================================================
+     * SEED-POSITIONEN BERECHNEN
+     * ============================================================
      *
-     * Beispiel für 8 Spieler:
+     * Beispiel für 8:
      *
-     * 1
-     * 8
-     * 4
-     * 5
-     * 2
-     * 7
-     * 3
-     * 6
+     * 1, 8, 4, 5, 2, 7, 3, 6
      */
-    private function generateSeedPositions($size)
+    private function generateSeedPositions(int $size): array
     {
-
         $positions = [1, 2];
 
         while (count($positions) < $size) {

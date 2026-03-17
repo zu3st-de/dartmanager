@@ -1,22 +1,7 @@
 @extends('layouts.public')
 
 @section('content')
-
     @php
-
-        /**
-|--------------------------------------------------------------------------
-| SOURCE FORMATIERUNG FÜR KO MATCHES
-|--------------------------------------------------------------------------
-|
-| Übersetzt KO Quellen aus der DB:
-|
-| W1 = Winner Spiel 1
-| L2 = Loser Halbfinale 2
-| A1 = Platz 1 Gruppe A
-|
-*/
-
         function formatSource($source, $roundFromEnd = null)
         {
             if (!$source) {
@@ -28,17 +13,12 @@
                 $num = $m[2];
 
                 if ($type === 'W') {
-                    if ($roundFromEnd === 3) {
-                        return "Sieger {$num}. Achtelfinale";
-                    }
-                    if ($roundFromEnd === 2) {
-                        return "Sieger {$num}. Viertelfinale";
-                    }
-                    if ($roundFromEnd === 1) {
-                        return "Sieger {$num}. Halbfinale";
-                    }
-
-                    return "Sieger Spiel {$num}";
+                    return match ($roundFromEnd) {
+                        3 => "Sieger {$num}. Achtelfinale",
+                        2 => "Sieger {$num}. Viertelfinale",
+                        1 => "Sieger {$num}. Halbfinale",
+                        default => "Sieger Spiel {$num}",
+                    };
                 }
 
                 if ($type === 'L') {
@@ -51,12 +31,6 @@
             return $source;
         }
 
-        /**
-|--------------------------------------------------------------------------
-| KO RUNDEN NAME AUTOMATISCH BESTIMMEN
-|--------------------------------------------------------------------------
-*/
-
         function koRoundName($matchCount)
         {
             $players = $matchCount * 2;
@@ -66,45 +40,18 @@
                 4 => 'Halbfinale',
                 8 => 'Viertelfinale',
                 16 => 'Achtelfinale',
-                32 => 'Sechzehntelfinale',
                 default => "Runde der {$players}",
             };
         }
-
     @endphp
 
 
     <div class="max-w-7xl mx-auto px-6 py-8">
 
-        {{-- TURNIER NAME --}}
+        {{-- TURNIERNAME --}}
         <h2 class="text-3xl font-bold text-white mb-6">
             {{ $tournament->name }}
         </h2>
-
-
-
-        {{-- DRAFT OVERLAY --}}
-        @if ($tournament->status === 'draft')
-            <div id="draftOverlay"
-                class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center text-center z-50">
-
-                <div class="text-4xl font-bold mb-6">
-                    {{ $tournament->name }}
-                </div>
-
-                <div class="text-3xl font-bold mb-6">
-                    Turnier startet in wenigen Augenblicken
-                </div>
-
-                <div class="text-lg text-gray-300 mb-10">
-                    Teilnehmer werden ausgelost
-                </div>
-
-                <div class="text-6xl">🎲 🎲 🎲</div>
-
-            </div>
-        @endif
-
 
 
         {{-- SPIELER FILTER --}}
@@ -118,480 +65,650 @@
                     {{ $player->name }}
                 </option>
             @endforeach
-
         </select>
 
 
-
+        {{-- CONTENT --}}
         <div id="followContent">
 
-            {{-- =====================================================
-   GRUPPENPHASE
-===================================================== --}}
-
-            <div class="space-y-10">
-
-                @foreach ($groupData as $data)
-                    <div class="group-block border-b border-gray-700 pb-8" data-group="{{ $data['group']->id }}"
-                        data-players="{{ $data['group']->players->pluck('id')->join(',') }}">
-
-                        <h4 class="text-lg font-semibold text-white mb-4">
-                            Gruppe {{ $data['group']->name }}
-                        </h4>
-
-
-
-                        {{-- GRUPPENTABELLE --}}
-                        <div class="overflow-hidden rounded-lg border border-gray-700">
-
-                            <table class="w-full text-sm">
-
-                                <thead class="bg-gray-800 text-gray-400 uppercase text-xs">
-
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Spieler</th>
-                                        <th>Sp</th>
-                                        <th>S</th>
-                                        <th>N</th>
-                                        <th>Diff</th>
-                                        <th>Pkt</th>
-                                    </tr>
-
-                                </thead>
-
-                                <tbody>
-
-                                    @foreach ($data['table'] as $index => $row)
-                                        @php
-                                            $isQualified = $index < $tournament->group_advance_count;
-                                            $isFirst = $index === 0;
-                                            $diff = $row['difference'];
-                                        @endphp
-
-                                        <tr class="{{ $isQualified ? 'bg-green-600/10' : '' }} border-t border-gray-800">
-
-                                            <td
-                                                class="px-2 py-2 font-mono {{ $isFirst ? 'text-yellow-400 font-bold' : '' }}">
-                                                {{ $index + 1 }}
-                                            </td>
-
-                                            <td class="px-2 py-2 {{ $isQualified ? 'text-green-400' : '' }}">
-
-                                                @if ($isFirst)
-                                                    🏆
-                                                @endif
-
-                                                {{ $row['player']->name }}
-
-                                            </td>
-
-                                            <td class="text-center">{{ $row['played'] }}</td>
-                                            <td class="text-center text-green-400">{{ $row['wins'] }}</td>
-                                            <td class="text-center text-red-400">{{ $row['losses'] }}</td>
-
-                                            <td
-                                                class="text-center font-mono
-{{ $diff > 0 ? 'text-green-400' : ($diff < 0 ? 'text-red-400' : 'text-gray-400') }}">
-
-                                                {{ $diff > 0 ? '+' : '' }}{{ $diff }}
-
-                                            </td>
-
-                                            <td class="text-center font-bold text-white">
-                                                {{ $row['points'] }}
-                                            </td>
-
-                                        </tr>
-                                    @endforeach
-
-                                </tbody>
-
-                            </table>
-
-                        </div>
-
-
-
-                        {{-- MATCH INFO --}}
-                        <div class="mt-4 space-y-2 text-sm">
-
-                            @if ($data['lastGame'])
-                                <div>
-
-                                    <strong>Letztes Spiel:</strong>
-
-                                    {{ $data['lastGame']->player1->name }}
-                                    {{ $data['lastGame']->player1_score }}
-                                    :
-                                    {{ $data['lastGame']->player2_score }}
-                                    {{ $data['lastGame']->player2->name }}
-
-                                </div>
-                            @endif
-
-
-                            @if ($data['currentGame'])
-                                <div class="text-yellow-400 font-semibold">
-
-                                    Jetzt am Board:
-
-                                    {{ $data['currentGame']->player1?->name }}
-                                    vs
-                                    {{ $data['currentGame']->player2?->name }}
-
-                                </div>
-                            @endif
-
-
-                            @if ($data['nextGame'])
-                                <div class="text-gray-400">
-
-                                    Nächstes Spiel:
-
-                                    {{ $data['nextGame']->player1?->name }}
-                                    vs
-                                    {{ $data['nextGame']->player2?->name }}
-
-                                </div>
-                            @endif
-
-                        </div>
-
-
-
-                        {{-- BUTTON --}}
-                        <button id="toggleBtn{{ $data['group']->id }}"
-                            class="mt-4 text-sm px-3 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-800"
-                            onclick="toggleGroupGames({{ $data['group']->id }})">
-
-                            Spiele anzeigen
-
-                        </button>
-
-
-
-                        {{-- MATCH LISTE --}}
-                        <div id="groupGames{{ $data['group']->id }}" class="group-games mt-4 hidden">
-
-                            @foreach ($data['games'] as $match)
-                                <div class="match-card border-b border-gray-800 py-2" data-match="{{ $match->id }}"
-                                    data-player1="{{ $match->player1_id }}" data-player2="{{ $match->player2_id }}">
-
-                                    <div class="flex justify-between text-sm">
-
-                                        <span
-                                            class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
-                                            {{ $match->player1?->name }}
-                                        </span>
-
-                                        <span class="score text-gray-400">
-                                            {{ $match->player1_score }} : {{ $match->player2_score }}
-                                        </span>
-
-                                        <span
-                                            class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
-                                            {{ $match->player2?->name }}
-                                        </span>
-
-                                    </div>
-
-                                </div>
-                            @endforeach
-
-                        </div>
-
-                    </div>
-                @endforeach
-
-            </div>
-
-
-
-            {{-- =====================================================
-   KO PHASE
-===================================================== --}}
-
-            @if ($koRounds->count())
-                <h4 class="text-xl font-semibold text-white mt-10 mb-4">
-                    KO Phase
-                </h4>
-
-                @php $totalRounds = $koRounds->count(); @endphp
-
-                @foreach ($koRounds as $roundNumber => $matches)
-                    @php
-                        $currentRoundIndex = $loop->index;
-                        $roundFromEnd = $totalRounds - $currentRoundIndex;
-                    @endphp
-
-
-                    {{-- Spiel um Platz 3 direkt vor dem Finale --}}
-                    @if ($roundFromEnd === 1 && $tournament->has_third_place && $thirdPlaceMatches->count())
-                        <div class="ko-round mb-6">
-
-                            <h5 class="text-gray-400 mb-2">
-                                Spiel um Platz 3
-                            </h5>
-
-                            @foreach ($thirdPlaceMatches as $match)
-                                <div class="match-card border-b border-gray-800 py-2" data-match="{{ $match->id }}"
-                                    data-player1="{{ $match->player1_id }}" data-player2="{{ $match->player2_id }}">
-
-                                    <div class="flex justify-between text-sm">
-
-                                        <span
-                                            class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
-                                            {{ $match->player1->name ?? formatSource($match->player1_source) }}
-                                        </span>
-
-                                        <span class="score text-gray-400">
-                                            {{ $match->player1_score }} : {{ $match->player2_score }}
-                                        </span>
-
-                                        <span
-                                            class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
-                                            {{ $match->player2->name ?? formatSource($match->player2_source) }}
-                                        </span>
-
-                                    </div>
-
-                                </div>
-                            @endforeach
-
-                        </div>
-                    @endif
-
-
-                    <div class="ko-round mb-6">
-
-                        <h5 class="text-gray-400 mb-2">
-                            {{ koRoundName($matches->count()) }}
-                        </h5>
-
-                        @foreach ($matches as $match)
-                            <div class="match-card border-b border-gray-800 py-2" data-match="{{ $match->id }}"
-                                data-player1="{{ $match->player1_id }}" data-player2="{{ $match->player2_id }}">
-
-                                <div class="flex justify-between text-sm">
-
-                                    <span
-                                        class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
-                                        {{ $match->player1->name ?? formatSource($match->player1_source, $roundFromEnd) }}
-                                    </span>
-
-                                    <span class="score text-gray-400">
-                                        {{ $match->player1_score }} : {{ $match->player2_score }}
-                                    </span>
-
-                                    <span
-                                        class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
-                                        {{ $match->player2->name ?? formatSource($match->player2_source, $roundFromEnd) }}
-                                    </span>
-
-                                </div>
-
-                            </div>
-                        @endforeach
-
-                    </div>
-                @endforeach
-            @endif
+            @include(
+                'public.partials.follow-content',
+                compact('groupData', 'koRounds', 'thirdPlaceMatches', 'tournament'))
 
         </div>
+        {{-- 🔥 VICTORY OVERLAY --}}
+        <div id="victoryOverlay" class="victory-overlay">
+            <div class="victory-content">
+                <div class="victory-title">🏆 Turnier beendet!</div>
+                <div class="winner-name">{{ $tournament->winner->name ?? '' }}</div>
+            </div>
+        </div>
+    </div>
+@endsection
 
-    @endsection
 
 
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        /* ============================================================
+                                                                                                                                    LOCAL STORAGE
+                                                                                                                                ============================================================ */
 
-    @push('scripts')
-        <script>
-            /* -----------------------------
-                           LocalStorage
-                        ------------------------------*/
+        function getOpenGroups() {
+            return JSON.parse(localStorage.getItem("openGroups") || "[]");
+        }
 
-            function getOpenGroups() {
-                let stored = localStorage.getItem("openGroups")
-                return stored ? JSON.parse(stored) : []
+        function saveOpenGroups(groups) {
+            localStorage.setItem("openGroups", JSON.stringify(groups));
+        }
+
+
+        /* ============================================================
+           TOGGLE GROUP GAMES
+        ============================================================ */
+
+        window.toggleGroupGames = function(groupId) {
+
+            let el = document.getElementById("groupGames" + groupId);
+            let btn = document.getElementById("toggleBtn" + groupId);
+
+            if (!el) return;
+
+            el.classList.toggle("hidden");
+
+            let openGroups = getOpenGroups();
+
+            if (!el.classList.contains("hidden")) {
+
+                if (!openGroups.includes(groupId))
+                    openGroups.push(groupId);
+
+                if (btn) btn.textContent = "Spiele ausblenden";
+
+            } else {
+
+                openGroups = openGroups.filter(id => id != groupId);
+
+                if (btn) btn.textContent = "Spiele anzeigen";
             }
 
-            function saveOpenGroups(groups) {
-                localStorage.setItem("openGroups", JSON.stringify(groups))
+            saveOpenGroups(openGroups);
+        };
+
+
+        /* ============================================================
+           PLAYER FILTER
+        ============================================================ */
+
+        function applyPlayerFilter(player) {
+
+            document.querySelectorAll(".group-block").forEach(group => {
+
+                let players = group.dataset.players.split(",");
+
+                group.style.display =
+                    player === "" || players.includes(player) ?
+                    "block" :
+                    "none";
+            });
+
+            document.querySelectorAll(".match-card").forEach(match => {
+
+                let p1 = match.dataset.player1;
+                let p2 = match.dataset.player2;
+
+                match.style.display =
+                    player === "" || p1 == player || p2 == player ?
+                    "block" :
+                    "none";
+            });
+        }
+
+
+        /* ============================================================
+           MATCH UPDATE
+        ============================================================ */
+
+        function updateMatch(match) {
+
+            let el = document.querySelector(`[data-match="${match.id}"]`);
+            if (!el) return;
+
+            let scoreEl = el.querySelector(".score");
+
+            let newScore = `${match.player1_score ?? ""} : ${match.player2_score ?? ""}`;
+
+            if (scoreEl.textContent !== newScore) {
+
+                scoreEl.textContent = newScore;
+
+                el.classList.add("updated");
+                setTimeout(() => el.classList.remove("updated"), 400);
             }
+        }
 
 
+        /* ============================================================
+           TABLE UPDATE (STABIL VERSION)
+        ============================================================ */
+        const GROUP_ADVANCE_COUNT = {{ $tournament->group_advance_count }};
 
-            /* -----------------------------
-               Gruppen ein / ausklappen
-            ------------------------------*/
+        function updateTable(groups) {
 
-            window.toggleGroupGames = function(groupId) {
+            groups.forEach(group => {
 
-                let el = document.getElementById("groupGames" + groupId)
-                let btn = document.getElementById("toggleBtn" + groupId)
+                let tbody = document.querySelector(
+                    `.group-table[data-group="${group.group.id}"]`
+                );
 
-                if (!el) return
+                if (!tbody) return;
 
-                el.classList.toggle("hidden")
+                // 🔥 bestehende rows mappen
+                let rows = {};
+                tbody.querySelectorAll(".group-row").forEach(tr => {
+                    rows[tr.dataset.player] = tr;
+                });
 
-                let openGroups = getOpenGroups()
+                // 🔥 Fragment (wird NICHT gerendert!)
+                let fragment = document.createDocumentFragment();
 
-                if (!el.classList.contains("hidden")) {
+                group.table.forEach((row, newIndex) => {
 
-                    if (!openGroups.includes(groupId))
-                        openGroups.push(groupId)
+                    let tr = rows[row.player.id];
+                    if (!tr) return;
 
-                    if (btn) btn.textContent = "Spiele ausblenden"
+                    let rankEl = tr.querySelector(".rank");
+                    let nameEl = tr.querySelector(".name");
 
-                } else {
+                    // 👉 Werte setzen
+                    rankEl.textContent = newIndex + 1;
 
-                    openGroups = openGroups.filter(id => id != groupId)
+                    rankEl.className = "rank px-2 py-2 font-mono";
+                    nameEl.className = "name px-2 py-2";
 
-                    if (btn) btn.textContent = "Spiele anzeigen"
+                    if (newIndex === 0) {
+                        rankEl.classList.add("text-yellow-400", "font-bold");
+                        nameEl.textContent = "🏆 " + row.player.name;
+                    } else {
+                        nameEl.textContent = row.player.name;
+                    }
 
+                    if (newIndex < GROUP_ADVANCE_COUNT) {
+                        nameEl.classList.add("text-green-400");
+                    }
+
+                    tr.querySelector(".played").textContent = row.played;
+                    tr.querySelector(".wins").textContent = row.wins;
+                    tr.querySelector(".losses").textContent = row.losses;
+                    tr.querySelector(".points").textContent = row.points;
+
+                    let diff = row.difference;
+                    let diffEl = tr.querySelector(".diff");
+
+                    diffEl.textContent = (diff > 0 ? "+" : "") + diff;
+
+                    diffEl.className =
+                        "diff text-center " +
+                        (diff > 0 ?
+                            "text-green-400" :
+                            diff < 0 ?
+                            "text-red-400" :
+                            "text-gray-400");
+
+                    // 👉 in Fragment packen (nicht ins DOM!)
+                    fragment.appendChild(tr);
+                });
+
+                // 🔥 EIN EINZIGER DOM UPDATE
+                tbody.appendChild(fragment);
+            });
+        }
+
+        /* ============================================================
+           GROUP + KO
+        ============================================================ */
+
+        function updateGroups(groups) {
+            groups.forEach(group => {
+                group.games.forEach(updateMatch);
+            });
+        }
+
+        async function updateKoFull() {
+
+            const res = await fetch(window.location.pathname);
+            const html = await res.text();
+
+            let parser = new DOMParser();
+            let doc = parser.parseFromString(html, "text/html");
+
+            let newKo = doc.querySelectorAll(".ko-round");
+            let currentKo = document.querySelectorAll(".ko-round");
+
+            currentKo.forEach((el, i) => {
+                if (newKo[i]) {
+                    el.innerHTML = newKo[i].innerHTML;
+                }
+            });
+        }
+
+
+        /* ============================================================
+           RESTORE UI
+        ============================================================ */
+
+        function restoreUI() {
+
+            // offene Gruppen
+            getOpenGroups().forEach(groupId => {
+
+                let el = document.getElementById("groupGames" + groupId);
+                let btn = document.getElementById("toggleBtn" + groupId);
+
+                if (el) el.classList.remove("hidden");
+                if (btn) btn.textContent = "Spiele ausblenden";
+            });
+
+            // Filter
+            let saved = localStorage.getItem("followPlayerFilter");
+
+            if (saved) {
+                let filter = document.getElementById("playerFilter");
+                if (filter) filter.value = saved;
+
+                applyPlayerFilter(saved);
+            }
+        }
+
+
+        /* ============================================================
+           REFRESH
+        ============================================================ */
+        let victoryShown = localStorage.getItem("victoryShown") === "true";
+        async function refreshFollow() {
+
+            try {
+                const res = await fetch(window.location.pathname + "/data");
+                const data = await res.json();
+
+                updateGroups(data.groups);
+                await updateKoFull();
+                updateTable(data.groups);
+                updateCurrentGames(data.groups);
+
+                if (data.tournament_status === "finished" && !victoryShown) {
+
+                    victoryShown = true;
+                    localStorage.setItem("victoryShown", "true");
+
+                    setTimeout(() => {
+                        showVictoryOverlay();
+                    }, 800);
+                }
+                // 🔄 RESET wenn Turnier wieder offen ist
+                if (data.tournament_status !== "finished") {
+                    localStorage.removeItem("victoryShown");
+                    victoryShown = false;
                 }
 
-                saveOpenGroups(openGroups)
+                restoreUI();
 
+            } catch (e) {
+                console.error("Refresh Fehler", e);
+            }
+        }
+
+
+        /* ============================================================
+           INIT
+        ============================================================ */
+
+        document.addEventListener("DOMContentLoaded", function() {
+
+            restoreUI();
+
+            let filter = document.getElementById("playerFilter");
+
+            if (filter) {
+                filter.addEventListener("change", function() {
+
+                    let player = this.value;
+
+                    localStorage.setItem("followPlayerFilter", player);
+                    applyPlayerFilter(player);
+                });
+            }
+            // 🔥 INITIAL CHECK (falls Seite schon finished lädt)
+            if ("{{ $tournament->status }}" === "finished") {
+                setTimeout(() => {
+                    showVictoryOverlay();
+                }, 1000);
             }
 
+            setInterval(refreshFollow, 5000);
+        });
 
+        function updateCurrentGames(groups) {
 
-            /* -----------------------------
-               Spielerfilter
-            ------------------------------*/
+            groups.forEach(group => {
 
-            function applyPlayerFilter(player) {
+                let games = group.games;
 
-                document.querySelectorAll(".group-block").forEach(group => {
+                // 🔥 sortieren (wichtig!)
+                games.sort((a, b) => a.id - b.id);
 
-                    let players = group.dataset.players.split(",")
+                let finished = games
+                    .filter(g => g.winner_id !== null)
+                    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
 
-                    group.style.display =
-                        player === "" || players.includes(player) ?
-                        "block" :
-                        "none"
+                let open = games
+                    .filter(g => g.winner_id === null)
+                    .sort((a, b) => a.id - b.id);
 
-                })
+                let last = finished[0] || null; // 🔥 jetzt korrekt!
+                let current = open[0] || null;
+                let next = open[1] || null;
 
+                let lastEl = document.querySelector(
+                    `.last-game[data-group="${group.group.id}"]`
+                );
 
-                document.querySelectorAll(".match-card").forEach(match => {
+                let currentEl = document.querySelector(
+                    `.current-game[data-group="${group.group.id}"]`
+                );
 
-                    let p1 = match.dataset.player1
-                    let p2 = match.dataset.player2
+                let nextEl = document.querySelector(
+                    `.next-game[data-group="${group.group.id}"]`
+                );
 
-                    match.style.display =
-                        player === "" || p1 == player || p2 == player ?
-                        "block" :
-                        "none"
+                // =====================
+                // LAST GAME
+                // =====================
+                if (lastEl) {
+                    if (last && last.player1 && last.player2) {
 
-                })
+                        let p1Win = last.winner_id === last.player1_id;
+                        let p2Win = last.winner_id === last.player2_id;
 
+                        let p1Class = p1Win ? "text-green-400 font-semibold" : "";
+                        let p2Class = p2Win ? "text-green-400 font-semibold" : "";
 
-                document.querySelectorAll(".ko-round").forEach(round => {
-
-                    let visible = round.querySelectorAll(".match-card:not([style*='display: none'])")
-
-                    round.style.display = visible.length ? "block" : "none"
-
-                })
-
-            }
-
-
-
-            /* -----------------------------
-               Restore Funktionen
-            ------------------------------*/
-
-            function restorePlayerFilter() {
-
-                let saved = localStorage.getItem("followPlayerFilter")
-
-                if (saved) {
-
-                    let filter = document.getElementById("playerFilter")
-
-                    if (filter) filter.value = saved
-
-                    applyPlayerFilter(saved)
-
+                        lastEl.innerHTML =
+                            `<strong>Letztes Spiel:</strong>
+             <span class="${p1Class}">
+                ${last.player1.name}
+             </span>
+             ${last.player1_score ?? ''}
+             :
+             ${last.player2_score ?? ''}
+             <span class="${p2Class}">
+                ${last.player2.name}
+             </span>`;
+                    } else {
+                        lastEl.innerHTML = "";
+                    }
                 }
 
-            }
+                // =====================
+                // CURRENT GAME
+                // =====================
+                if (currentEl) {
 
-            function restoreOpenGroups() {
+                    if (current) {
 
-                let openGroups = getOpenGroups()
+                        let text =
+                            `Jetzt am Board: ${current.player1?.name ?? ''} vs ${current.player2?.name ?? ''}`;
 
-                openGroups.forEach(groupId => {
+                        // 🔥 nur ändern wenn nötig
+                        if (currentEl.textContent !== text) {
 
-                    let el = document.getElementById("groupGames" + groupId)
-                    let btn = document.getElementById("toggleBtn" + groupId)
+                            currentEl.innerHTML = text;
 
-                    if (el) el.classList.remove("hidden")
-                    if (btn) btn.textContent = "Spiele ausblenden"
+                            currentEl.classList.add("live");
 
-                })
-
-            }
-
-
-
-            /* -----------------------------
-               Live Refresh
-            ------------------------------*/
-
-            function refreshFollow() {
-
-                fetch(window.location.pathname)
-                    .then(res => res.text())
-                    .then(html => {
-
-                        let parser = new DOMParser()
-                        let doc = parser.parseFromString(html, "text/html")
-
-                        let newContent = doc.querySelector("#followContent")
-
-                        document.querySelector("#followContent").innerHTML =
-                            newContent.innerHTML
-
-                        restoreOpenGroups()
-                        restorePlayerFilter()
-
-                    })
-
-            }
+                            setTimeout(() => {
+                                currentEl.classList.remove("live");
+                            }, 1000);
 
 
+                        }
 
-            /* -----------------------------
-               Seite geladen
-            ------------------------------*/
-
-            document.addEventListener("DOMContentLoaded", function() {
-
-                restoreOpenGroups()
-                restorePlayerFilter()
-
-                let filter = document.getElementById("playerFilter")
-
-                if (filter) {
-
-                    filter.addEventListener("change", function() {
-
-                        let player = this.value
-
-                        localStorage.setItem("followPlayerFilter", player)
-
-                        applyPlayerFilter(player)
-
-                    })
-
+                    } else {
+                        currentEl.innerHTML = "";
+                        currentEl.classList.remove("live");
+                    }
                 }
 
-                setInterval(refreshFollow, 5000)
+                // =====================
+                // NEXT GAME
+                // =====================
+                if (nextEl) {
+                    if (next) {
+                        nextEl.innerHTML =
+                            `Nächstes Spiel: ${next.player1?.name ?? ''} vs ${next.player2?.name ?? ''}`;
+                    } else {
+                        nextEl.innerHTML = "";
+                    }
+                }
+            });
+        }
 
-            })
-        </script>
-    @endpush
+        function showVictoryOverlay() {
+
+            const overlay = document.getElementById("victoryOverlay");
+            if (!overlay) return;
+
+            setTimeout(() => {
+                overlay.classList.add("show");
+                startConfetti();
+            }, 800);
+
+            // 👉 Klick zum Schließen
+            overlay.addEventListener("click", () => {
+                overlay.classList.remove("show");
+            });
+        }
+
+        function startConfetti() {
+
+            const duration = 7000
+            const animationEnd = Date.now() + duration
+
+            const defaults = {
+                startVelocity: 30,
+                spread: 360,
+                ticks: 60,
+                zIndex: 10000
+            }
+
+            function randomInRange(min, max) {
+                return Math.random() * (max - min) + min
+            }
+
+            const interval = setInterval(function() {
+
+                const timeLeft = animationEnd - Date.now()
+
+                if (timeLeft <= 0) {
+                    return clearInterval(interval)
+                }
+
+                const particleCount = 50 * (timeLeft / duration)
+
+                confetti(Object.assign({}, defaults, {
+                    particleCount,
+                    origin: {
+                        x: randomInRange(0.1, 0.3),
+                        y: Math.random() - 0.2
+                    }
+                }))
+
+                confetti(Object.assign({}, defaults, {
+                    particleCount,
+                    origin: {
+                        x: randomInRange(0.7, 0.9),
+                        y: Math.random() - 0.2
+                    }
+                }))
+
+            }, 250)
+
+        }
+    </script>
+
+
+    <style>
+        .updated {
+            animation: flash 0.4s;
+        }
+
+        @keyframes flash {
+            from {
+                background: rgba(255, 255, 0, 0.3);
+            }
+
+            to {
+                background: transparent;
+            }
+        }
+
+        .move {
+            animation: moveRow 0.3s ease;
+        }
+
+        @keyframes moveRow {
+            from {
+                transform: translateY(-5px);
+                background: rgba(255, 255, 0, 0.2);
+            }
+
+            to {
+                transform: translateY(0);
+                background: transparent;
+            }
+        }
+
+        .live {
+            color: #facc15;
+            font-weight: bold;
+        }
+
+        .victory-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.8s;
+            z-index: 9999;
+        }
+
+        .victory-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .victory-overlay.show .place {
+            animation: riseUp 1.2s ease forwards;
+        }
+
+        .second {
+            animation-delay: 0.2s;
+        }
+
+        .first {
+            animation-delay: 0.5s;
+        }
+
+        .third {
+            animation-delay: 0.8s;
+        }
+
+        @keyframes riseUp {
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .victory-content {
+            text-align: center;
+            color: white;
+        }
+
+        .victory-title {
+            font-size: 50px;
+            color: #fbbf24;
+            margin-bottom: 30px;
+        }
+
+        .winner-name {
+            font-size: 70px;
+            font-weight: bold;
+            margin-bottom: 60px;
+            animation: pulseWinner 2s infinite;
+        }
+
+        @keyframes pulseWinner {
+            0% {
+                transform: scale(1)
+            }
+
+            50% {
+                transform: scale(1.05)
+            }
+
+            100% {
+                transform: scale(1)
+            }
+        }
+
+        .podium {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 60px;
+        }
+
+        .place {
+            text-align: center;
+            transform: translateY(400px);
+        }
+
+        .place .name {
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+
+        .step {
+            width: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        /* 🥇 */
+        .first .step {
+            height: 220px;
+            background: linear-gradient(180deg, #ffd700, #b8860b);
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.8);
+        }
+
+        /* 🥈 */
+        .second .step {
+            height: 170px;
+            background: linear-gradient(180deg, #d1d5db, #6b7280);
+        }
+
+        /* 🥉 */
+        .third .step {
+            height: 140px;
+            background: linear-gradient(180deg, #cd7f32, #7c2d12);
+        }
+    </style>
+@endpush

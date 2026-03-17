@@ -3,71 +3,105 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
-use App\Models\Player;
-use App\Models\Group;
-use App\Models\Game;
+use App\Services\GroupTableCalculator;
 
 class PublicController extends Controller
 {
     public function follow(Tournament $tournament)
     {
-        $tournament->load([
+        $tournament->load($this->relations());
+
+        $groupData = $this->buildGroupData($tournament);
+
+        $koRounds = $this->buildKoRounds($tournament);
+        $thirdPlaceMatches = $this->getThirdPlaceMatches($tournament);
+
+        [$winner, $secondPlace, $thirdPlace] =
+            $this->resolvePodium($tournament, $thirdPlaceMatches);
+
+        $players = $this->getPlayers($tournament);
+
+        return view('public.follow', compact(
+            'tournament',
+            'groupData',
+            'players',
+            'koRounds',
+            'thirdPlaceMatches',
+            'winner',
+            'secondPlace',
+            'thirdPlace'
+        ));
+    }
+
+
+    public function followData(Tournament $tournament)
+    {
+        $tournament->load($this->relations());
+
+        return response()->json([
+            'groups' => $this->buildGroupData($tournament),
+            'ko' => $this->buildKoRounds($tournament),
+            'tournament_status' => $tournament->status,
+        ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | RELATIONS
+    |--------------------------------------------------------------------------
+    */
+
+    private function relations(): array
+    {
+        return [
             'groups.players',
             'groups.games.player1',
             'groups.games.player2',
             'games.player1',
             'games.player2',
             'games.winner'
-        ]);
+        ];
+    }
 
 
-        /*
-    |---------------------------------------------------
-    | Gruppendaten
-    |---------------------------------------------------
+    /*
+    |--------------------------------------------------------------------------
+    | GROUP DATA
+    |--------------------------------------------------------------------------
     */
 
+    private function buildGroupData(Tournament $tournament): array
+    {
         $groupData = [];
 
         foreach ($tournament->groups as $group) {
 
-            $table = app(\App\Services\GroupTableCalculator::class)
-                ->calculate($group);
-
-            $lastGame = $group->games
-                ->whereNotNull('winner_id')
-                ->sortByDesc('updated_at')
-                ->first();
-
-            $currentGame = $group->games
-                ->whereNull('winner_id')
-                ->sortBy('id')
-                ->first();
-
-            $nextGame = $group->games
-                ->whereNull('winner_id')
-                ->sortBy('id')
-                ->skip(1)
-                ->first();
+            $games = $group->games;
 
             $groupData[] = [
                 'group' => $group,
-                'table' => $table,
-                'games' => $group->games,
-                'lastGame' => $lastGame,
-                'currentGame' => $currentGame,
-                'nextGame' => $nextGame
+                'table' => app(GroupTableCalculator::class)->calculate($group),
+                'games' => $games,
+                'lastGame' => $games->whereNotNull('winner_id')->sortByDesc('updated_at')->first(),
+                'currentGame' => $games->whereNull('winner_id')->sortBy('id')->first(),
+                'nextGame' => $games->whereNull('winner_id')->sortBy('id')->skip(1)->first(),
             ];
         }
 
+        return $groupData;
+    }
 
-        /*
-    |---------------------------------------------------
-    | KO Phase
-    |---------------------------------------------------
+
+    /*
+    |--------------------------------------------------------------------------
+    | KO ROUNDS
+    |--------------------------------------------------------------------------
     */
 
-        $koRounds = $tournament->games
+    private function buildKoRounds(Tournament $tournament)
+    {
+        return $tournament->games
             ->whereNull('group_id')
             ->where('is_third_place', false)
             ->sortBy([
@@ -75,24 +109,30 @@ class PublicController extends Controller
                 ['position', 'asc']
             ])
             ->groupBy('round');
+    }
 
 
-        /*
-    |---------------------------------------------------
-    | Spiel um Platz 3
-    |---------------------------------------------------
+    /*
+    |--------------------------------------------------------------------------
+    | THIRD PLACE
+    |--------------------------------------------------------------------------
     */
 
-        $thirdPlaceMatches = $tournament->games
+    private function getThirdPlaceMatches(Tournament $tournament)
+    {
+        return $tournament->games
             ->where('is_third_place', true);
+    }
 
 
-        /*
-    |---------------------------------------------------
-    | Siegerpodest
-    |---------------------------------------------------
+    /*
+    |--------------------------------------------------------------------------
+    | PODIUM
+    |--------------------------------------------------------------------------
     */
 
+    private function resolvePodium(Tournament $tournament, $thirdPlaceMatches): array
+    {
         $winner = null;
         $secondPlace = null;
         $thirdPlace = null;
@@ -115,68 +155,24 @@ class PublicController extends Controller
         $thirdPlaceMatch = $thirdPlaceMatches->first();
 
         if ($thirdPlaceMatch && $thirdPlaceMatch->winner) {
-
             $thirdPlace = $thirdPlaceMatch->winner;
         }
 
+        return [$winner, $secondPlace, $thirdPlace];
+    }
 
-        /*
-    |---------------------------------------------------
-    | Spieler (für Filter)
-    |---------------------------------------------------
+
+    /*
+    |--------------------------------------------------------------------------
+    | PLAYERS
+    |--------------------------------------------------------------------------
     */
 
-        $players = $tournament->groups
+    private function getPlayers(Tournament $tournament)
+    {
+        return $tournament->groups
             ->flatMap(fn($g) => $g->players)
             ->unique('id')
             ->values();
-
-
-        return view('public.follow', compact(
-            'tournament',
-            'groupData',
-            'players',
-            'koRounds',
-            'thirdPlaceMatches',
-            'winner',
-            'secondPlace',
-            'thirdPlace'
-        ));
-    }
-    public function followData(Tournament $tournament)
-    {
-        $tournament->load([
-            'groups.players',
-            'groups.games.player1',
-            'groups.games.player2',
-            'games.player1',
-            'games.player2',
-            'games.winner'
-        ]);
-
-        $groupData = [];
-
-        foreach ($tournament->groups as $group) {
-
-            $table = app(\App\Services\GroupTableCalculator::class)
-                ->calculate($group);
-
-            $groupData[] = [
-                'group' => $group,
-                'table' => $table,
-                'games' => $group->games
-            ];
-        }
-
-        $koRounds = $tournament->games
-            ->whereNull('group_id')
-            ->where('is_third_place', false)
-            ->sortBy('round')
-            ->groupBy('round');
-
-        return response()->json([
-            'groups' => $groupData,
-            'ko' => $koRounds
-        ]);
     }
 }

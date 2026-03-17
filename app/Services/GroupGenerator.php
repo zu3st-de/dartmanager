@@ -5,35 +5,102 @@ namespace App\Services;
 use App\Models\Tournament;
 use App\Models\Game;
 
+/**
+ * ================================================================
+ * GroupGenerator
+ * ================================================================
+ *
+ * Verantwortlich für:
+ *
+ * - Gruppen erstellen
+ * - Spieler gleichmäßig verteilen
+ * - Round-Robin Spielplan erzeugen
+ *
+ * WICHTIG:
+ *
+ * - Diese Klasse erstellt NUR Struktur
+ * - KEINE Auswertung / Tabelle (→ GroupTableCalculator)
+ *
+ * ================================================================
+ */
 class GroupGenerator
 {
+    /**
+     * ============================================================
+     * GRUPPEN + SPIELPLAN ERZEUGEN
+     * ============================================================
+     *
+     * Ablauf:
+     *
+     * 1. Spieler laden & mischen
+     * 2. Gruppen erstellen (A, B, C, ...)
+     * 3. Spieler gleichmäßig verteilen
+     * 4. Round-Robin Spiele pro Gruppe erzeugen
+     */
     public function generate(Tournament $tournament, int $groupCount): void
     {
-        // Spieler zufällig mischen
-        $players = $tournament->players()->inRandomOrder()->get();
+        /*
+        |--------------------------------------------------------------------------
+        | 1. Spieler laden & zufällig mischen
+        |--------------------------------------------------------------------------
+        */
 
-        // Gruppen erstellen
+        $players = $tournament->players()
+            ->inRandomOrder()
+            ->get()
+            ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 2. Gruppen erstellen (A, B, C, ...)
+        |--------------------------------------------------------------------------
+        */
+
         $groups = collect();
 
         for ($i = 0; $i < $groupCount; $i++) {
+
             $groups->push(
                 $tournament->groups()->create([
-                    'name' => chr(65 + $i) // A, B, C, ...
+                    'name' => chr(65 + $i)
                 ])
             );
         }
 
-        // Spieler gleichmäßig auf Gruppen verteilen
+
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Spieler gleichmäßig verteilen (Round-Robin Verteilung)
+        |--------------------------------------------------------------------------
+        |
+        | Vorteil:
+        | - gleich große Gruppen
+        | - keine Clusterbildung
+        |
+        */
+
         foreach ($players as $index => $player) {
+
             $group = $groups[$index % $groupCount];
-            $player->update(['group_id' => $group->id]);
+
+            $player->update([
+                'group_id' => $group->id
+            ]);
         }
 
-        // Für jede Gruppe Round-Robin erzeugen
+
+        /*
+        |--------------------------------------------------------------------------
+        | 4. Für jede Gruppe Spielplan erzeugen
+        |--------------------------------------------------------------------------
+        */
+
         foreach ($groups as $group) {
 
             $groupPlayers = $group->players;
 
+            // Sicherheitscheck
             if ($groupPlayers->count() < 2) {
                 continue;
             }
@@ -47,61 +114,61 @@ class GroupGenerator
                 Game::create([
                     'tournament_id' => $tournament->id,
                     'group_id'      => $group->id,
+
                     'player1_id'    => $gameData['player1_id'],
                     'player2_id'    => $gameData['player2_id'],
-                    'is_group_match' => true,
+
                     'round'         => $gameData['round'],
                     'position'      => $position++,
+
                     'best_of'       => $tournament->group_best_of ?? 3,
                 ]);
             }
         }
     }
 
+
     /**
-     * Dynamischer Round-Robin Generator (Circle Method)
+     * ============================================================
+     * ROUND-ROBIN GENERATOR (CIRCLE METHOD)
+     * ============================================================
+     *
+     * Eigenschaften:
+     *
+     * - Jeder spielt gegen jeden genau einmal
+     * - Funktioniert für gerade & ungerade Spielerzahlen
+     * - Gleichmäßige Verteilung der Gegner
+     *
+     * Rückgabe:
+     *
+     * Collection:
+     * [
+     *   [
+     *     'round' => int,
+     *     'player1_id' => int,
+     *     'player2_id' => int,
+     *   ],
+     *   ...
+     * ]
      */
     private function generateRoundRobin($players)
     {
         /*
-    |--------------------------------------------------------------------------
-    | 1. Spieler zufällig mischen
-    |--------------------------------------------------------------------------
-    |
-    | Dadurch ist der Spielplan jedes Turnier anders.
-    | Sonst hätten immer die gleichen Spieler die gleichen Gegner früh/spät.
-    |
-    */
+        |--------------------------------------------------------------------------
+        | 1. Spieler zufällig mischen
+        |--------------------------------------------------------------------------
+        */
 
         $players = $players->shuffle()->values()->all();
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | 2. Spieleranzahl bestimmen
-    |--------------------------------------------------------------------------
-    */
 
         $count = count($players);
 
 
         /*
-    |--------------------------------------------------------------------------
-    | 3. Freilos hinzufügen wenn Spielerzahl ungerade ist
-    |--------------------------------------------------------------------------
-    |
-    | Round Robin funktioniert nur mit einer GERADEN Anzahl Spieler,
-    | weil immer Paare gebildet werden müssen.
-    |
-    | Beispiel:
-    | 9 Spieler → einer hätte keinen Gegner.
-    |
-    | Lösung:
-    | Wir fügen einen "Dummy-Spieler" (null) hinzu.
-    |
-    | Wer gegen null gepaart wird → hat Pause.
-    |
-    */
+        |--------------------------------------------------------------------------
+        | 2. Freilos hinzufügen (bei ungerader Spielerzahl)
+        |--------------------------------------------------------------------------
+        */
 
         if ($count % 2 !== 0) {
             $players[] = null;
@@ -110,157 +177,76 @@ class GroupGenerator
 
 
         /*
-    |--------------------------------------------------------------------------
-    | 4. Anzahl Runden berechnen
-    |--------------------------------------------------------------------------
-    |
-    | Bei Round Robin gilt immer:
-    |
-    | Runden = Spieler - 1
-    |
-    | Beispiel:
-    | 10 Spieler → 9 Runden
-    |
-    */
+        |--------------------------------------------------------------------------
+        | 3. Grundwerte berechnen
+        |--------------------------------------------------------------------------
+        */
 
         $rounds = $count - 1;
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | 5. Spiele pro Runde
-    |--------------------------------------------------------------------------
-    |
-    | Jede Runde entstehen:
-    |
-    | Spieler / 2 Paarungen
-    |
-    | Beispiel:
-    | 10 Spieler → 5 Spiele
-    |
-    */
-
-        $half = $count / 2;
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | 6. Ergebnisliste
-    |--------------------------------------------------------------------------
-    */
+        $half   = $count / 2;
 
         $schedule = [];
 
 
         /*
-    |--------------------------------------------------------------------------
-    | 7. Runden erzeugen
-    |--------------------------------------------------------------------------
-    |
-    | Wir erzeugen jetzt jede Runde einzeln.
-    |
-    */
+        |--------------------------------------------------------------------------
+        | 4. Runden erzeugen
+        |--------------------------------------------------------------------------
+        */
 
         for ($round = 0; $round < $rounds; $round++) {
-
-            /*
-        |--------------------------------------------------------------------------
-        | 8. Paarungen der aktuellen Runde
-        |--------------------------------------------------------------------------
-        |
-        | Der Trick der Circle Method:
-        |
-        | erster Spieler gegen letzten
-        | zweiter Spieler gegen vorletzten
-        | dritter gegen drittletzten
-        |
-        */
 
             for ($i = 0; $i < $half; $i++) {
 
                 $p1 = $players[$i];
                 $p2 = $players[$count - 1 - $i];
 
+                /*
+                |--------------------------------------------------------------------------
+                | Freilos → überspringen
+                |--------------------------------------------------------------------------
+                */
+
+                if (!$p1 || !$p2) {
+                    continue;
+                }
+
 
                 /*
-            |--------------------------------------------------------------------------
-            | 9. Freilos überspringen
-            |--------------------------------------------------------------------------
-            |
-            | Wenn einer der beiden Spieler null ist,
-            | bedeutet das Pause.
-            |
-            */
-
-                if ($p1 && $p2) {
-
-                    /*
                 |--------------------------------------------------------------------------
-                | 10. Seiten fairness herstellen
-                |--------------------------------------------------------------------------
-                |
-                | Wenn wir nichts tun, wäre der erste Spieler
-                | häufig Player1.
-                |
-                | Deshalb wechseln wir jede Runde die Seiten.
-                |
-                */
-
-                    if ($round % 2 === 0) {
-                        $player1 = $p1;
-                        $player2 = $p2;
-                    } else {
-                        $player1 = $p2;
-                        $player2 = $p1;
-                    }
-
-
-                    /*
-                |--------------------------------------------------------------------------
-                | 11. Spiel speichern
+                | Seiten wechseln (Fairness)
                 |--------------------------------------------------------------------------
                 */
 
-                    $schedule[] = [
-                        'round' => $round + 1,
-                        'player1_id' => $player1->id,
-                        'player2_id' => $player2->id,
-                    ];
+                if ($round % 2 === 0) {
+                    $player1 = $p1;
+                    $player2 = $p2;
+                } else {
+                    $player1 = $p2;
+                    $player2 = $p1;
                 }
+
+
+                $schedule[] = [
+                    'round' => $round + 1,
+                    'player1_id' => $player1->id,
+                    'player2_id' => $player2->id,
+                ];
             }
 
 
             /*
-        |--------------------------------------------------------------------------
-        | 12. Circle Method Rotation
-        |--------------------------------------------------------------------------
-        |
-        | Jetzt rotieren wir die Spielerliste.
-        |
-        | WICHTIG:
-        | Spieler an Position 0 bleibt fix.
-        |
-        | Beispiel vorher:
-        |
-        | A B C D E F G H I -
-        |
-        | nach Rotation:
-        |
-        | A - B C D E F G H I
-        |
-        */
+            |--------------------------------------------------------------------------
+            | Circle Rotation
+            |--------------------------------------------------------------------------
+            |
+            | Spieler[0] bleibt fix
+            |
+            */
 
             $last = array_pop($players);
-
             array_splice($players, 1, 0, [$last]);
         }
-
-
-        /*
-    |--------------------------------------------------------------------------
-    | 13. Spiele zurückgeben
-    |--------------------------------------------------------------------------
-    */
 
         return collect($schedule);
     }

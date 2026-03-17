@@ -6,10 +6,27 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * ================================================================
+ * AppServiceProvider
+ * ================================================================
+ *
+ * Verantwortlich für:
+ *
+ * - globale View-Daten
+ * - Bootstrapping von App-weiten Features
+ *
+ * Hier:
+ * → aktive Turniere im Navigationsmenü bereitstellen
+ *
+ * ================================================================
+ */
 class AppServiceProvider extends ServiceProvider
 {
     /**
-     * Register any application services.
+     * ============================================================
+     * Services registrieren
+     * ============================================================
      */
     public function register(): void
     {
@@ -17,25 +34,63 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bootstrap any application services.
+     * ============================================================
+     * Bootstrapping
+     * ============================================================
      */
     public function boot(): void
     {
+        /*
+        |--------------------------------------------------------------------------
+        | View Composer für Navigation
+        |--------------------------------------------------------------------------
+        |
+        | Wird bei jedem Render von layouts.navigation ausgeführt
+        |
+        | Liefert:
+        | - alle aktiven (nicht abgeschlossenen) Turniere des Users
+        |
+        */
+
         View::composer('layouts.navigation', function ($view) {
 
-            if (Auth::check()) {
+            /*
+            |--------------------------------------------------------------------------
+            | Kein eingeloggter User → leere Collection
+            |--------------------------------------------------------------------------
+            */
 
-                $activeTournaments = Auth::user()
-                    ->tournaments()
-                    ->where('status', '!=', 'finished')
-                    ->orderBy('created_at')
-                    ->select('id', 'name', 'status')
-                    ->get();
-
-                $view->with('activeTournaments', $activeTournaments);
-            } else {
+            if (!Auth::check()) {
                 $view->with('activeTournaments', collect());
+                return;
             }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Aktive Turniere laden
+            |--------------------------------------------------------------------------
+            |
+            | Optimierungen:
+            | - nur benötigte Felder (select)
+            | - sortiert nach Erstellung
+            |
+            */
+
+            $activeTournaments = Auth::user()
+                ->tournaments()
+                ->where('status', '!=', 'finished')
+                ->orderBy('created_at')
+                ->get(['id', 'name', 'status']);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Daten an View übergeben
+            |--------------------------------------------------------------------------
+            */
+
+            $view->with('activeTournaments', $activeTournaments);
         });
     }
 }
