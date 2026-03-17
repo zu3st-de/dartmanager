@@ -2058,7 +2058,7 @@ class TournamentController extends Controller
         */
 
             $tournament->update([
-                'status' => 'group_finished'
+                'status' => 'group_running'
             ]);
         });
 
