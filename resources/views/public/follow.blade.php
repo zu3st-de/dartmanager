@@ -5,19 +5,18 @@
     @php
 
         /**
-         * -------------------------------------------------------------
-         * SOURCE FORMATIERUNG FÜR KO MATCHES
-         * -------------------------------------------------------------
-         *
-         * KO Spiele werden in der DB häufig mit Quellen gespeichert wie:
-         *
-         * W1  = Winner Spiel 1
-         * L2  = Loser Halbfinale 2
-         * A1  = 1. Platz Gruppe A
-         *
-         * Diese Funktion übersetzt diese Kurzform in lesbare Texte
-         * für Zuschauer auf der Follow-Seite.
-         */
+|--------------------------------------------------------------------------
+| SOURCE FORMATIERUNG FÜR KO MATCHES
+|--------------------------------------------------------------------------
+|
+| Übersetzt KO Quellen aus der DB:
+|
+| W1 = Winner Spiel 1
+| L2 = Loser Halbfinale 2
+| A1 = Platz 1 Gruppe A
+|
+*/
+
         function formatSource($source, $roundFromEnd = null)
         {
             if (!$source) {
@@ -28,16 +27,13 @@
                 $type = $m[1];
                 $num = $m[2];
 
-                // Gewinner vorheriger KO Runde
                 if ($type === 'W') {
                     if ($roundFromEnd === 3) {
                         return "Sieger {$num}. Achtelfinale";
                     }
-
                     if ($roundFromEnd === 2) {
                         return "Sieger {$num}. Viertelfinale";
                     }
-
                     if ($roundFromEnd === 1) {
                         return "Sieger {$num}. Halbfinale";
                     }
@@ -45,12 +41,10 @@
                     return "Sieger Spiel {$num}";
                 }
 
-                // Verlierer Halbfinale → Spiel um Platz 3
                 if ($type === 'L') {
                     return "Verlierer {$num}. Halbfinale";
                 }
 
-                // Gruppenergebnis
                 return $num . '. Gruppe ' . $type;
             }
 
@@ -58,17 +52,11 @@
         }
 
         /**
-         * -------------------------------------------------------------
-         * AUTOMATISCHE KO RUNDEN BENENNUNG
-         * -------------------------------------------------------------
-         *
-         * Bestimmt den Namen der KO Runde anhand der Match Anzahl.
-         *
-         * Beispiel:
-         * 1 Match  -> Finale
-         * 2 Matches -> Halbfinale
-         * 4 Matches -> Viertelfinale
-         */
+|--------------------------------------------------------------------------
+| KO RUNDEN NAME AUTOMATISCH BESTIMMEN
+|--------------------------------------------------------------------------
+*/
+
         function koRoundName($matchCount)
         {
             $players = $matchCount * 2;
@@ -88,19 +76,14 @@
 
     <div class="max-w-7xl mx-auto px-6 py-8">
 
-        {{-- ============================================================
-   TURNIER NAME
-============================================================ --}}
-
+        {{-- TURNIER NAME --}}
         <h2 class="text-3xl font-bold text-white mb-6">
             {{ $tournament->name }}
         </h2>
 
 
-        {{-- ============================================================
-   DRAFT OVERLAY (WENN TURNIER NOCH NICHT GESTARTET)
-============================================================ --}}
 
+        {{-- DRAFT OVERLAY --}}
         @if ($tournament->status === 'draft')
             <div id="draftOverlay"
                 class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center text-center z-50">
@@ -117,19 +100,14 @@
                     Teilnehmer werden ausgelost
                 </div>
 
-                <div class="dice-container text-6xl">
-                    🎲 🎲 🎲
-                </div>
+                <div class="text-6xl">🎲 🎲 🎲</div>
 
             </div>
         @endif
 
 
-        {{-- ============================================================
-   SPIELER FILTER
-   Ermöglicht nur Spiele eines Spielers anzuzeigen
-============================================================ --}}
 
+        {{-- SPIELER FILTER --}}
         <select id="playerFilter"
             class="mb-6 w-full max-w-md bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-300">
 
@@ -147,10 +125,9 @@
 
         <div id="followContent">
 
-
-            {{-- ============================================================
+            {{-- =====================================================
    GRUPPENPHASE
-============================================================ --}}
+===================================================== --}}
 
             <div class="space-y-10">
 
@@ -163,15 +140,13 @@
                         </h4>
 
 
-                        {{-- ------------------------------------------------------------
-   GRUPPENTABELLE
------------------------------------------------------------- --}}
 
+                        {{-- GRUPPENTABELLE --}}
                         <div class="overflow-hidden rounded-lg border border-gray-700">
 
                             <table class="w-full text-sm">
 
-                                <thead class="bg-gray-800 text-gray-400 uppercase text-xs tracking-wider">
+                                <thead class="bg-gray-800 text-gray-400 uppercase text-xs">
 
                                     <tr>
                                         <th>#</th>
@@ -185,7 +160,6 @@
 
                                 </thead>
 
-
                                 <tbody>
 
                                     @foreach ($data['table'] as $index => $row)
@@ -194,7 +168,6 @@
                                             $isFirst = $index === 0;
                                             $diff = $row['difference'];
                                         @endphp
-
 
                                         <tr class="{{ $isQualified ? 'bg-green-600/10' : '' }} border-t border-gray-800">
 
@@ -213,27 +186,19 @@
 
                                             </td>
 
-                                            <td class="px-2 py-2 text-center">
-                                                {{ $row['played'] }}
-                                            </td>
-
-                                            <td class="px-2 py-2 text-center text-green-400">
-                                                {{ $row['wins'] }}
-                                            </td>
-
-                                            <td class="px-2 py-2 text-center text-red-400">
-                                                {{ $row['losses'] }}
-                                            </td>
+                                            <td class="text-center">{{ $row['played'] }}</td>
+                                            <td class="text-center text-green-400">{{ $row['wins'] }}</td>
+                                            <td class="text-center text-red-400">{{ $row['losses'] }}</td>
 
                                             <td
-                                                class="px-2 py-2 text-center font-mono
+                                                class="text-center font-mono
 {{ $diff > 0 ? 'text-green-400' : ($diff < 0 ? 'text-red-400' : 'text-gray-400') }}">
 
                                                 {{ $diff > 0 ? '+' : '' }}{{ $diff }}
 
                                             </td>
 
-                                            <td class="px-2 py-2 text-center font-bold text-white">
+                                            <td class="text-center font-bold text-white">
                                                 {{ $row['points'] }}
                                             </td>
 
@@ -248,14 +213,12 @@
 
 
 
-                        {{-- ------------------------------------------------------------
-   LETZTES / AKTUELLES / NÄCHSTES SPIEL
------------------------------------------------------------- --}}
-
+                        {{-- MATCH INFO --}}
                         <div class="mt-4 space-y-2 text-sm">
 
                             @if ($data['lastGame'])
                                 <div>
+
                                     <strong>Letztes Spiel:</strong>
 
                                     {{ $data['lastGame']->player1->name }}
@@ -297,11 +260,8 @@
 
 
 
-                        {{-- ------------------------------------------------------------
-   BUTTON ZUM AUFKLAPPEN DER GRUPPENSPIELE
------------------------------------------------------------- --}}
-
-                        <button
+                        {{-- BUTTON --}}
+                        <button id="toggleBtn{{ $data['group']->id }}"
                             class="mt-4 text-sm px-3 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-800"
                             onclick="toggleGroupGames({{ $data['group']->id }})">
 
@@ -311,10 +271,7 @@
 
 
 
-                        {{-- ------------------------------------------------------------
-   GRUPPENSPIELE LISTE
------------------------------------------------------------- --}}
-
+                        {{-- MATCH LISTE --}}
                         <div id="groupGames{{ $data['group']->id }}" class="group-games mt-4 hidden">
 
                             @foreach ($data['games'] as $match)
@@ -351,9 +308,9 @@
 
 
 
-            {{-- ============================================================
+            {{-- =====================================================
    KO PHASE
-============================================================ --}}
+===================================================== --}}
 
             @if ($koRounds->count())
                 <h4 class="text-xl font-semibold text-white mt-10 mb-4">
@@ -369,25 +326,33 @@
                     @endphp
 
 
-
-                    {{-- Spiel um Platz 3 vor Finale --}}
+                    {{-- Spiel um Platz 3 direkt vor dem Finale --}}
                     @if ($roundFromEnd === 1 && $tournament->has_third_place && $thirdPlaceMatches->count())
                         <div class="ko-round mb-6">
 
-                            <h5 class="text-gray-400 mb-2">Spiel um Platz 3</h5>
+                            <h5 class="text-gray-400 mb-2">
+                                Spiel um Platz 3
+                            </h5>
 
                             @foreach ($thirdPlaceMatches as $match)
-                                <div class="match-card border-b border-gray-800 py-2">
+                                <div class="match-card border-b border-gray-800 py-2" data-match="{{ $match->id }}"
+                                    data-player1="{{ $match->player1_id }}" data-player2="{{ $match->player2_id }}">
 
                                     <div class="flex justify-between text-sm">
 
-                                        <span>{{ $match->player1->name ?? formatSource($match->player1_source) }}</span>
+                                        <span
+                                            class="{{ $match->winner_id == $match->player1_id ? 'text-green-400 font-semibold' : '' }}">
+                                            {{ $match->player1->name ?? formatSource($match->player1_source) }}
+                                        </span>
 
                                         <span class="score text-gray-400">
                                             {{ $match->player1_score }} : {{ $match->player2_score }}
                                         </span>
 
-                                        <span>{{ $match->player2->name ?? formatSource($match->player2_source) }}</span>
+                                        <span
+                                            class="{{ $match->winner_id == $match->player2_id ? 'text-green-400 font-semibold' : '' }}">
+                                            {{ $match->player2->name ?? formatSource($match->player2_source) }}
+                                        </span>
 
                                     </div>
 
@@ -396,7 +361,6 @@
 
                         </div>
                     @endif
-
 
 
                     <div class="ko-round mb-6">
@@ -434,37 +398,37 @@
                 @endforeach
             @endif
 
-
-
         </div>
+
     @endsection
+
+
+
     @push('scripts')
         <script>
-            /* ---------------------------
-                                           LocalStorage für Gruppen
-                                        --------------------------- */
+            /* -----------------------------
+                           LocalStorage
+                        ------------------------------*/
 
             function getOpenGroups() {
-
                 let stored = localStorage.getItem("openGroups")
                 return stored ? JSON.parse(stored) : []
-
             }
 
             function saveOpenGroups(groups) {
-
                 localStorage.setItem("openGroups", JSON.stringify(groups))
-
             }
 
 
-            /* ---------------------------
-               Gruppenspiele anzeigen
-            --------------------------- */
+
+            /* -----------------------------
+               Gruppen ein / ausklappen
+            ------------------------------*/
 
             window.toggleGroupGames = function(groupId) {
 
                 let el = document.getElementById("groupGames" + groupId)
+                let btn = document.getElementById("toggleBtn" + groupId)
 
                 if (!el) return
 
@@ -474,11 +438,16 @@
 
                 if (!el.classList.contains("hidden")) {
 
-                    if (!openGroups.includes(groupId)) openGroups.push(groupId)
+                    if (!openGroups.includes(groupId))
+                        openGroups.push(groupId)
+
+                    if (btn) btn.textContent = "Spiele ausblenden"
 
                 } else {
 
                     openGroups = openGroups.filter(id => id != groupId)
+
+                    if (btn) btn.textContent = "Spiele anzeigen"
 
                 }
 
@@ -487,13 +456,12 @@
             }
 
 
-            /* ---------------------------
+
+            /* -----------------------------
                Spielerfilter
-            --------------------------- */
+            ------------------------------*/
 
             function applyPlayerFilter(player) {
-
-                /* Gruppen filtern */
 
                 document.querySelectorAll(".group-block").forEach(group => {
 
@@ -506,8 +474,6 @@
 
                 })
 
-
-                /* Matches filtern */
 
                 document.querySelectorAll(".match-card").forEach(match => {
 
@@ -522,8 +488,6 @@
                 })
 
 
-                /* leere KO Runden verstecken */
-
                 document.querySelectorAll(".ko-round").forEach(round => {
 
                     let visible = round.querySelectorAll(".match-card:not([style*='display: none'])")
@@ -535,53 +499,48 @@
             }
 
 
-            /* ---------------------------
-               Seite geladen
-            --------------------------- */
 
-            document.addEventListener("DOMContentLoaded", function() {
+            /* -----------------------------
+               Restore Funktionen
+            ------------------------------*/
 
-                /* Spielerfilter */
+            function restorePlayerFilter() {
 
-                let filter = document.getElementById("playerFilter")
+                let saved = localStorage.getItem("followPlayerFilter")
 
-                if (filter) {
+                if (saved) {
 
-                    let savedPlayer = localStorage.getItem("followPlayerFilter")
+                    let filter = document.getElementById("playerFilter")
 
-                    if (savedPlayer) {
+                    if (filter) filter.value = saved
 
-                        filter.value = savedPlayer
-                        applyPlayerFilter(savedPlayer)
-
-                    }
-
-                    filter.addEventListener("change", function() {
-
-                        let player = this.value
-
-                        localStorage.setItem("followPlayerFilter", player)
-
-                        applyPlayerFilter(player)
-
-                    })
+                    applyPlayerFilter(saved)
 
                 }
 
+            }
 
-                /* offene Gruppen wieder öffnen */
+            function restoreOpenGroups() {
 
                 let openGroups = getOpenGroups()
 
                 openGroups.forEach(groupId => {
 
                     let el = document.getElementById("groupGames" + groupId)
+                    let btn = document.getElementById("toggleBtn" + groupId)
 
                     if (el) el.classList.remove("hidden")
+                    if (btn) btn.textContent = "Spiele ausblenden"
 
                 })
 
-            })
+            }
+
+
+
+            /* -----------------------------
+               Live Refresh
+            ------------------------------*/
 
             function refreshFollow() {
 
@@ -597,10 +556,42 @@
                         document.querySelector("#followContent").innerHTML =
                             newContent.innerHTML
 
+                        restoreOpenGroups()
+                        restorePlayerFilter()
+
                     })
 
             }
 
-            setInterval(refreshFollow, 5000)
+
+
+            /* -----------------------------
+               Seite geladen
+            ------------------------------*/
+
+            document.addEventListener("DOMContentLoaded", function() {
+
+                restoreOpenGroups()
+                restorePlayerFilter()
+
+                let filter = document.getElementById("playerFilter")
+
+                if (filter) {
+
+                    filter.addEventListener("change", function() {
+
+                        let player = this.value
+
+                        localStorage.setItem("followPlayerFilter", player)
+
+                        applyPlayerFilter(player)
+
+                    })
+
+                }
+
+                setInterval(refreshFollow, 5000)
+
+            })
         </script>
     @endpush
