@@ -278,17 +278,9 @@
 
     </div>
 
-    <svg id="bracket"
-        viewBox="0 0 1920 1080"
-        preserveAspectRatio="xMidYMid meet">
+    <svg id="bracket" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet">
 
-        <text id="title"
-            x="960"
-            y="80"
-            text-anchor="middle"
-            fill="#f9fafb"
-            font-size="48"
-            font-weight="bold">
+        <text id="title" x="960" y="80" text-anchor="middle" fill="#f9fafb" font-size="48" font-weight="bold">
             {{ $tournament->name }}
         </text>
 

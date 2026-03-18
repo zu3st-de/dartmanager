@@ -19,68 +19,76 @@
                 DRAFT PHASE
             ======================================================== --}}
             @if ($tournament->status === 'draft')
-
                 {{-- Spieler auslosen --}}
                 <form method="POST" action="{{ route('tournaments.draw', $tournament) }}">
                     @csrf
                     <button class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-white transition">
-                        🎲 Spieler auslosen
+                        🎲 Auslosen
                     </button>
                 </form>
 
                 {{-- Turnier starten --}}
-                @if ($tournament->players->count() >= 2)
-                    <form method="POST" action="{{ route('tournaments.start', $tournament) }}">
-                        @csrf
-                        <button class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-white transition">
-                            ▶ Turnier starten
-                        </button>
-                    </form>
-                @else
-                    <div class="text-sm text-gray-400 self-center">
-                        Mindestens 2 Spieler erforderlich
-                    </div>
-                @endif
+                @php
+                    $canStart = $tournament->players->count() >= 2;
+                @endphp
 
+                <form method="POST" action="{{ route('tournaments.start', $tournament) }}">
+                    @csrf
+
+                    <button type="submit" {{ !$canStart ? 'disabled' : '' }}
+                        class="
+            px-4 py-2 rounded-lg text-white transition
+            {{ $canStart ? 'bg-green-600 hover:bg-green-500' : 'bg-gray-600 cursor-not-allowed opacity-50' }}
+        "
+                        title="{{ $canStart ? '' : 'Mindestens 2 Spieler erforderlich' }}">
+                        ▶ Starten
+                    </button>
+                </form>
             @endif
 
 
-            {{-- ========================================================
-                SPIELER TOGGLE
-            ======================================================== --}}
-            @if ($tournament->status !== 'draft')
-                <button type="button" @click="showPlayers = !showPlayers"
-                    class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
 
-                    <span x-show="!showPlayers">Spieler anzeigen</span>
-                    <span x-show="showPlayers">Spieler ausblenden</span>
+            <button onclick="showView('players')" data-tab="players"
+                class="tab-btn pb-2 text-gray-400 hover:text-white transition">
+                👤 Spieler
+            </button>
 
-                </button>
-            @endif
+            <button onclick="showView('groups')" data-tab="groups"
+                class="tab-btn pb-2 text-gray-400 hover:text-white transition">
+                🟢 Gruppen
+            </button>
+
+            <button onclick="showView('bracket')" data-tab="bracket"
+                class="tab-btn pb-2 text-gray-400 hover:text-white transition">
+                🏆 Bracket
+            </button>
+
 
 
             {{-- ========================================================
                 GRUPPENPHASE → KO START
             ======================================================== --}}
             @if ($tournament->status === 'group_running')
-
                 @php
                     $unfinished = $tournament->games->whereNotNull('group_id')->whereNull('winner_id')->count();
+
+                    $canFinish = $unfinished === 0;
                 @endphp
 
-                @if ($unfinished === 0)
-                    <form method="POST" action="{{ route('tournaments.finishGroups', $tournament) }}">
-                        @csrf
-                        <button class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-white transition">
-                            🏁 KO-Phase starten
-                        </button>
-                    </form>
-                @else
-                    <div class="text-sm text-gray-400 self-center">
-                        Gruppenspiele noch nicht vollständig
-                    </div>
-                @endif
+                <form method="POST" action="{{ route('tournaments.finishGroups', $tournament) }}">
+                    @csrf
 
+                    <button type="submit" {{ !$canFinish ? 'disabled' : '' }}
+                        class="
+                px-4 py-2 rounded-lg text-white transition
+                {{ $canFinish
+                    ? 'bg-purple-600 hover:bg-purple-500'
+                    : 'bg-gray-600 cursor-not-allowed opacity-50 hover:bg-gray-600' }}
+            "
+                        title="{{ $canFinish ? '' : 'Gruppenspiele noch nicht vollständig' }}">
+                        🏁 KO-Phase starten
+                    </button>
+                </form>
             @endif
 
 

@@ -1,18 +1,34 @@
 export function initGroups() {
 
+    /*
+    |--------------------------------------------------------------------------
+    | 🔧 SCORE SUBMIT (AJAX)
+    |--------------------------------------------------------------------------
+    */
     async function submitScore(form) {
 
-        const inputs = form.querySelectorAll('.score-input');
+        const inputs = form.querySelectorAll('.group-score-input');
 
+        // 🔒 nur wenn beide Scores vorhanden
         if (!inputs[0].value || !inputs[1].value) return false;
 
         const formData = new FormData();
 
-        formData.append('_token',
-            form.querySelector('.csrf-token').value);
+        // 🔐 CSRF Token
+        formData.append(
+            '_token',
+            document.querySelector('meta[name="csrf-token"]').content
+        );
 
+        // 🔢 Scores
         formData.append('player1_score', inputs[0].value);
         formData.append('player2_score', inputs[1].value);
+
+        // 🎯 optional: Rest (nur bei BO1 vorhanden)
+        const restInput = form.querySelector('[name="winning_rest"]');
+        if (restInput) {
+            formData.append('winning_rest', restInput.value);
+        }
 
         const response = await fetch(form.dataset.url, {
             method: 'POST',
@@ -23,22 +39,53 @@ export function initGroups() {
             body: formData
         });
 
-        return response.ok;
+        console.log('STATUS:', response.status);
+
+        // ❌ Fehler sauber loggen
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('SERVER ERROR:', errorText);
+            return false;
+        }
+
+        const data = await response.json();
+
+        console.log('DATA:', data);
+
+        return data;
     }
 
-    // Einzelnes Spiel speichern (Button)
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🖱 SUBMIT PER BUTTON (falls du später Button nutzt)
+    |--------------------------------------------------------------------------
+    */
     document.addEventListener('click', async function (e) {
 
         if (!e.target.classList.contains('group-save-btn')) return;
 
         const form = e.target.closest('.score-form');
 
-        const success = await submitScore(form);
+        const data = await submitScore(form);
 
-        if (success) location.reload();
+        if (!data || !data.success) return;
+
+        reloadGame(data.game_id);
+        reloadGroup(data.group_id);
+
+        // kleiner Delay wegen DOM update
+        setTimeout(() => {
+            scrollToNextGame(data.group_id);
+        }, 100);
     });
 
-    // Enter-Handling
+
+    /*
+    |--------------------------------------------------------------------------
+    | ⌨ ENTER HANDLING
+    |--------------------------------------------------------------------------
+    */
     document.addEventListener('keydown', async function (e) {
 
         if (e.key !== 'Enter') return;
@@ -51,16 +98,58 @@ export function initGroups() {
 
         const form = input.closest('.score-form');
 
-        const success = await submitScore(form);
+        const data = await submitScore(form);
 
-        if (success) location.reload();
+        if (!data || !data.success) return;
+
+        reloadGame(data.game_id);
+        reloadGroup(data.group_id);
+
+        // kleiner Delay wegen DOM update
+        setTimeout(() => {
+            scrollToNextGame(data.group_id);
+        }, 100);
     });
 
-    // Alle Spiele speichern
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📥 FORM SUBMIT (WICHTIGSTER HANDLER)
+    |--------------------------------------------------------------------------
+    |
+    | 🔥 DAS ist dein Hauptweg – alles andere optional
+    |
+    */
+    document.addEventListener('submit', async function (e) {
+
+        if (!e.target.classList.contains('score-form')) return;
+
+        e.preventDefault();
+
+        const form = e.target;
+
+        const data = await submitScore(form);
+
+        if (!data || !data.success) return;
+
+        reloadGame(data.game_id);
+        reloadGroup(data.group_id);
+
+        // kleiner Delay wegen DOM update
+        setTimeout(() => {
+            scrollToNextGame(data.group_id);
+        }, 100);
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | 💾 SAVE ALL (optional)
+    |--------------------------------------------------------------------------
+    */
     const saveAllBtn = document.getElementById('save-all-groups-btn');
 
     if (saveAllBtn) {
-
         saveAllBtn.addEventListener('click', async function () {
 
             const forms = document.querySelectorAll('.score-form');
@@ -69,49 +158,102 @@ export function initGroups() {
                 await submitScore(form);
             }
 
-            location.reload();
+            location.reload(); // ok für bulk
         });
-
     }
 
 }
-function reloadGroup(groupId) {
 
-    fetch(`/groups/${groupId}/table`)
-        .then(res => res.text())
-        .then(html => {
 
-            document.querySelector(`[data-group-table="${groupId}"]`)
-                .innerHTML = html;
+/*
+|--------------------------------------------------------------------------
+| 🔄 BEST OF UPDATE
+|--------------------------------------------------------------------------
+*/
+window.updateGroupBestOf = function (el, tournamentId) {
 
-        });
-}
-document.addEventListener('submit', e => {
+    const formData = new FormData();
+    formData.append('best_of', el.value);
 
-    if (!e.target.classList.contains('group-score-form')) return;
-
-    e.preventDefault();
-
-    const form = e.target;
-    const groupId = form.dataset.group;
-
-    fetch(form.action, {
+    fetch(`/tournaments/${tournamentId}/group-best-of`, {
         method: 'POST',
-        body: new FormData(form),
         headers: {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             'Accept': 'application/json'
-        }
+        },
+        body: formData
     })
         .then(res => res.json())
         .then(data => {
-
             if (data.success) {
+                location.reload();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Fehler beim Speichern');
+        });
+};
 
-                reloadGroup(groupId); // 🔥 Tabelle neu laden
 
+/*
+|--------------------------------------------------------------------------
+| 🔄 GROUP RELOAD
+|--------------------------------------------------------------------------
+*/
+window.reloadGroup = function (groupId) {
+
+    if (!groupId) {
+        console.warn('reloadGroup: groupId fehlt!');
+        return;
+    }
+
+    console.log('Reloading group:', groupId);
+
+    Promise.all([
+        fetch(`/groups/${groupId}/table`).then(res => res.text()),
+        fetch(`/groups/${groupId}/games`).then(res => res.text())
+    ])
+        .then(([tableHtml, gamesHtml]) => {
+
+            const tableEl = document.querySelector(`[data-group-table="${groupId}"]`);
+            const gamesEl = document.querySelector(`[data-group-games="${groupId}"]`);
+
+            if (tableEl) tableEl.innerHTML = tableHtml;
+            if (gamesEl) gamesEl.innerHTML = gamesHtml;
+
+            // 🔁 Events neu initialisieren
+            if (window.initGroups) {
+                window.initGroups();
+            }
+
+        })
+        .catch(err => {
+            console.error('reloadGroup ERROR:', err);
+        });
+};
+
+
+/*
+|--------------------------------------------------------------------------
+| 🔄 SINGLE GAME RELOAD
+|--------------------------------------------------------------------------
+*/
+window.reloadGame = function (gameId) {
+
+    fetch(`/games/${gameId}/html`)
+        .then(res => res.text())
+        .then(html => {
+
+            const el = document.querySelector(`[data-game="${gameId}"]`);
+
+            if (el) {
+                el.outerHTML = html;
+            }
+
+            if (window.initGroups) {
+                window.initGroups();
             }
 
         });
-
-});
+};

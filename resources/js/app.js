@@ -6,13 +6,26 @@ import { initPlayers } from './modules/players';
 import { initKnockout } from './modules/knockout';
 import { initGroups } from './modules/groups';
 
-document.addEventListener('DOMContentLoaded', function () {
-    initGroups();
-});
+document.addEventListener('DOMContentLoaded', () => {
 
-document.addEventListener('DOMContentLoaded', function () {
-    initPlayers();
-    initKnockout();
+    const status = window.tournamentStatus;
+
+    let defaultView = 'players';
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🎯 Automatische View-Auswahl
+    |--------------------------------------------------------------------------
+    */
+    if (status === 'group_running') {
+        defaultView = 'groups';
+    }
+
+    if (status === 'ko_running' || status === 'finished') {
+        defaultView = 'bracket';
+    }
+
+    showView(defaultView);
 });
 
 window.Alpine = Alpine;
@@ -25,3 +38,28 @@ import { initAutoSim } from './modules/autosim';
 document.addEventListener('DOMContentLoaded', () => {
     initAutoSim();
 });
+
+window.showView = function (viewName) {
+
+    localStorage.setItem('activeView', viewName);
+
+    document.querySelectorAll('.view-section').forEach(el => {
+        el.classList.add('hidden');
+    });
+
+    const activeView = document.getElementById(`view-${viewName}`);
+    if (activeView) {
+        activeView.classList.remove('hidden');
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+
+        const isActive = btn.dataset.tab === viewName;
+
+        btn.classList.toggle('text-white', isActive);
+        btn.classList.toggle('border-b-2', isActive);
+        btn.classList.toggle('border-emerald-400', isActive);
+
+        btn.classList.toggle('text-gray-400', !isActive);
+    });
+};

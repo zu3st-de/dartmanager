@@ -5,13 +5,10 @@
         <div class="flex items-center gap-8">
 
             {{-- Logo --}}
-            <a href="{{ route('tournaments.index') }}"
-                class="flex items-center gap-3">
+            <a href="{{ route('tournaments.index') }}" class="flex items-center gap-3">
 
-                <img
-                    src="{{ asset('images/dart-manager-horizontal-normal.png') }}"
-                    srcset="{{ asset('images/dart-manager-horizontal@2x.png') }} 2x"
-                    height="50"
+                <img src="{{ asset('images/dart-manager-horizontal-normal.png') }}"
+                    srcset="{{ asset('images/dart-manager-horizontal@2x.png') }} 2x" height="50"
                     alt="Dart Manager Logo">
 
             </a>
@@ -28,15 +25,13 @@
                 TV Rotation
             </a>
             {{-- Aktive Turniere --}}
-            @foreach($activeTournaments ?? [] as $tournament)
+            @foreach ($activeTournaments ?? [] as $tournament)
+                <a href="{{ route('tournaments.show', $tournament) }}"
+                    class="text-gray-400 hover:text-emerald-400 text-sm transition">
 
-            <a href="{{ route('tournaments.show', $tournament) }}"
-                class="text-gray-400 hover:text-emerald-400 text-sm transition">
+                    {{ $tournament->name }}
 
-                {{ $tournament->name }}
-
-            </a>
-
+                </a>
             @endforeach
 
         </div>
@@ -45,17 +40,16 @@
         <div class="flex items-center gap-4">
 
             @auth
-            <span class="text-gray-400 text-sm">
-                {{ auth()->user()->name }}
-            </span>
+                <span class="text-gray-400 text-sm">
+                    {{ auth()->user()->name }}
+                </span>
 
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit"
-                    class="text-gray-400 hover:text-red-400 text-sm transition">
-                    Logout
-                </button>
-            </form>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="text-gray-400 hover:text-red-400 text-sm transition">
+                        Logout
+                    </button>
+                </form>
             @endauth
 
         </div>

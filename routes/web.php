@@ -131,7 +131,7 @@ Route::middleware('auth')->group(function () {
         [TournamentController::class, 'finishGroups']
     )->name('tournaments.finishGroups');
 
-    Route::patch(
+    Route::post(
         '/tournaments/{tournament}/group-best-of',
         [TournamentController::class, 'updateGroupBestOf']
     )->name('tournaments.updateGroupBestOf');
@@ -204,5 +204,32 @@ Route::get('/games/{game}/next', function (App\Models\Game $game) {
         'next_game_id' => $nextGame?->id
     ]);
 });
+Route::get('/groups/{group}/table', function (\App\Models\Group $group) {
 
+    return view('tournaments.partials._group_table', [
+        'group' => $group->load('players', 'games.player1', 'games.player2'),
+        'tournament' => $group->tournament // 🔥 DAS FEHLT!
+    ]);
+});
+Route::get('/groups/{group}/games', function (\App\Models\Group $group) {
+
+    $group = \App\Models\Group::with([
+        'games.player1',
+        'games.player2'
+    ])->findOrFail($group->id);
+
+    return view('tournaments.partials._group_games', [
+        'group' => $group,
+        'tournament' => $group->tournament
+    ]);
+});
+Route::get('/games/{game}/html', function (\App\Models\Game $game) {
+
+    $game = \App\Models\Game::with(['player1', 'player2'])->findOrFail($game->id);
+
+    return view('tournaments.partials._group_game_single', [
+        'game' => $game,
+        'tournament' => $game->tournament
+    ]);
+});
 require __DIR__ . '/auth.php';
