@@ -8,7 +8,8 @@ class TvTournament extends Model
 {
     protected $fillable = [
         'tournament_id',
-        'position'
+        'position',
+        'rotation_time'
     ];
 
     public function tournament()

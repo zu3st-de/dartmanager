@@ -1,7 +1,6 @@
 @extends('layouts.tv')
 
 @section('content')
-
     <div id="tvStage" class="w-screen h-screen relative"></div>
 
 
@@ -14,8 +13,7 @@
 
             <div class="flex justify-evenly items-center w-full max-w-6xl">
 
-                @foreach($tournaments as $tournament)
-
+                @foreach ($tournaments as $tournament)
                     <div class="flex flex-col items-center">
 
                         <div class="text-3xl mb-6">
@@ -27,7 +25,6 @@
                         </div>
 
                     </div>
-
                 @endforeach
 
             </div>
@@ -35,12 +32,12 @@
         </div>
 
     </div>
-
 @endsection
 
 @push('scripts')
     <script>
-        document.addEventListener("DOMContentLoaded", function () {
+        const rotationTime = {{ \App\Models\TvTournament::value('rotation_time') ?? 20 }};
+        document.addEventListener("DOMContentLoaded", function() {
 
             const stage = document.getElementById("tvStage")
 
@@ -50,7 +47,8 @@
                     type: "overview"
                 },
 
-                @foreach($tournaments as $t) {
+                @foreach ($tournaments as $t)
+                    {
                         type: "tournament",
                         url: "/tv/{{ $t->id }}"
                     },
@@ -104,18 +102,16 @@
 
             showPage()
 
-            setInterval(next, 20000)
+            setInterval(next, rotationTime * 1000)
 
         })
     </script>
 @endpush
 
 @push('styles')
-
     <style>
         #tvStage {
             transition: opacity .6s ease;
         }
     </style>
-
 @endpush

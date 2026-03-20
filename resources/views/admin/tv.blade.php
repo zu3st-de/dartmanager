@@ -12,25 +12,28 @@
 
             <div class="space-y-3">
 
-                @foreach($tournaments as $tournament)
+                @foreach ($tournaments as $tournament)
+                    <label class="flex items-center gap-3">
 
-                <label class="flex items-center gap-3">
+                        <input type="checkbox" name="tournaments[]" value="{{ $tournament->id }}"
+                            {{ in_array($tournament->id, $selected) ? 'checked' : '' }}>
 
-                    <input type="checkbox"
-                        name="tournaments[]"
-                        value="{{ $tournament->id }}"
-                        {{ in_array($tournament->id,$selected) ? 'checked' : '' }}>
+                        <span>
+                            {{ $tournament->name }}
+                        </span>
 
-                    <span>
-                        {{ $tournament->name }}
-                    </span>
-
-                </label>
-
+                    </label>
                 @endforeach
 
             </div>
+            <div class="mb-6">
+                <label class="block text-sm text-gray-300 mb-2">
+                    Rotationszeit (Sekunden)
+                </label>
 
+                <input type="number" name="rotation_time" value="{{ $rotationTime ?? 20 }}"
+                    class="bg-gray-800 text-white px-3 py-2 rounded w-32" min="5" max="300">
+            </div>
             <button class="mt-6 px-4 py-2 bg-blue-600 text-white rounded">
                 Speichern
             </button>
