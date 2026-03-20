@@ -10,21 +10,23 @@ use App\Models\Game;
  * KnockoutGenerator
  * ================================================================
  *
- * Verantwortlich für den kompletten Aufbau des KO-Baums.
+ * Verantwortlich für die Erstellung und Befüllung eines KO-Baums.
  *
- * Aufgaben:
- *
- * - KO-Bracket als Platzhalter erzeugen (ohne Spieler)
- * - Gruppenquellen korrekt in die erste Runde setzen (A1, B2, ...)
- * - Turnier-Seeding (1 vs 8, 4 vs 5, ...)
- * - Spieler später in Runde 1 einsetzen (optional)
+ * Hauptaufgaben:
+ * - Generieren eines vollständigen Brackets (2^n Größe)
+ * - Platzieren von Spielern im Baum
+ * - Umgang mit BYEs (Freilosen)
  *
  * WICHTIG:
+ * - Diese Klasse erstellt NUR die Struktur
+ * - Spielausgänge werden durch TournamentEngine verarbeitet
  *
- * - Diese Klasse erstellt nur die STRUKTUR
- * - KEINE Spiellogik (→ übernimmt TournamentEngine)
+ * Typischer Ablauf:
+ * 1. generatePlaceholderBracket()
+ * 2. fillBracketPlayers()
+ * 3. BYEs automatisch weiterleiten
  *
- * ================================================================
+ * Diese Klasse enthält KEINE Business-Logik zur Qualifikation!
  */
 class KnockoutGenerator
 {

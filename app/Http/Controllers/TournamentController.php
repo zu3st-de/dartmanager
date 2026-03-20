@@ -1653,33 +1653,33 @@ class TournamentController extends Controller
 |--------------------------------------------------------------------------
 */
 
-    /*
-|--------------------------------------------------------------------------
-| KO PHASE STARTEN
-|--------------------------------------------------------------------------
-|
-| Diese Methode wird aufgerufen, nachdem die Gruppenphase abgeschlossen
-| wurde. Der KO-Baum existiert bereits (Placeholders wurden beim
-| Turnierstart erstellt).
-|
-| Aufgabe dieser Methode:
-|
-| 1. Gruppentabellen berechnen
-| 2. player1_source / player2_source auswerten (z.B. A1, B4)
-| 3. entsprechende Spieler einsetzen
-| 4. KO-Phase starten
-|
-| Beispiel:
-|
-| player1_source = A1
-| player2_source = B4
-|
-| bedeutet:
-| 1. Platz Gruppe A
-| vs
-| 4. Platz Gruppe B
-|
-*/
+    /**
+     * ================================================================
+     * Start KO Phase
+     * ================================================================
+     *
+     * Startet die KO-Phase eines Turniers basierend auf den Ergebnissen
+     * der Gruppenphase.
+     *
+     * Ablauf:
+     * 1. Tabellen für alle Gruppen berechnen
+     * 2. Top X Spieler je Gruppe bestimmen (group_advance_count)
+     * 3. Spieler ins KO-Bracket einfügen
+     * 4. KO-Phase starten
+     *
+     * Optional:
+     * - Wenn `has_lucky_loser = true`, wird zusätzlich ein
+     *   separates Lucky-Loser-Turnier erstellt:
+     *     → enthält alle nicht qualifizierten Spieler
+     *     → startet im Draft-Modus (kein Auto-Start)
+     *
+     * WICHTIG:
+     * - KO-Logik wird vollständig über KnockoutGenerator abgewickelt
+     * - Keine direkte Manipulation von Games außerhalb der Engine
+     *
+     * @param Tournament $tournament
+     * @return RedirectResponse
+     */
 
     public function startKo(Tournament $tournament)
     {
@@ -2626,15 +2626,28 @@ class TournamentController extends Controller
      * Lucky Loser Turnier erstellen
      * ================================================================
      *
-     * Erstellt ein separates KO-Turnier mit allen nicht qualifizierten Spielern.
+     * Erstellt ein separates Turnier mit allen Spielern, die sich
+     * NICHT für die KO-Phase qualifiziert haben.
+     *
+     * Konzept:
+     * - Kein "Best-of-Rest" Ranking
+     * - Stattdessen: Second-Chance Bracket
      *
      * Ablauf:
-     * - Qualifizierte Spieler bestimmen
-     * - Restspieler sammeln
-     * - zufällig mischen
-     * - neues Turnier erstellen
-     * - KO generieren
-     * - optional ins TV hängen
+     * 1. Qualifizierte Spieler aus Gruppen entfernen
+     * 2. Restspieler sammeln
+     * 3. Spieler zufällig mischen (shuffle)
+     * 4. Neues Turnier erstellen (status = draft)
+     * 5. Spieler KOPIEREN (nicht verschieben!)
+     *
+     * WICHTIG:
+     * - Spieler werden dupliziert, nicht verschoben
+     * - Hauptturnier bleibt unverändert
+     * - KO wird NICHT automatisch gestartet
+     *
+     * @param Tournament $tournament
+     * @param array $tables
+     * @return void
      */
     private function createLuckyLoserTournament(Tournament $tournament, array $tables)
     {

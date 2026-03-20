@@ -7,24 +7,26 @@ use App\Models\Tournament;
 
 /**
  * ================================================================
- * TournamentEngine
+ * KnockoutGenerator
  * ================================================================
  *
- * Diese Engine steuert den Ablauf der KO-Phase.
+ * Verantwortlich für die Erstellung und Befüllung eines KO-Baums.
  *
- * Verantwortlichkeiten:
- *
- * - Gewinner eines Spiels verarbeiten
- * - Gewinner in nächste Runde weiterleiten
- * - Verlierer ins Spiel um Platz 3 setzen (optional)
- * - Turnierende erkennen
+ * Hauptaufgaben:
+ * - Generieren eines vollständigen Brackets (2^n Größe)
+ * - Platzieren von Spielern im Baum
+ * - Umgang mit BYEs (Freilosen)
  *
  * WICHTIG:
+ * - Diese Klasse erstellt NUR die Struktur
+ * - Spielausgänge werden durch TournamentEngine verarbeitet
  *
- * - Gruppenspiele werden vollständig ignoriert
- * - KO-Logik greift ausschließlich bei Spielen ohne group_id
+ * Typischer Ablauf:
+ * 1. generatePlaceholderBracket()
+ * 2. fillBracketPlayers()
+ * 3. BYEs automatisch weiterleiten
  *
- * ================================================================
+ * Diese Klasse enthält KEINE Business-Logik zur Qualifikation!
  */
 class TournamentEngine
 {
