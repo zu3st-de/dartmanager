@@ -93,7 +93,7 @@
         {{-- 🔹 Spieler hinzufügen nur im Draft --}}
         @if ($tournament->status === 'draft')
             {{-- Einzelnen Spieler hinzufügen --}}
-            <form id="playerForm" data-url="{{ route('tournaments.addPlayer', $tournament) }}" class="flex gap-2">
+            <form id="playerForm" data-url="{{ route('tournaments.players.store', $tournament) }}" class="flex gap-2">
 
                 <input type="text" id="playerInput" placeholder="Spielername eingeben" required autocomplete="off"
                     class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">

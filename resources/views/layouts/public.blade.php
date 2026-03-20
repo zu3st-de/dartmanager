@@ -16,6 +16,7 @@
 
     <!-- Eigenes CSS -->
     <link rel="stylesheet" href="{{ asset('css/follow.css') }}">
+    @stack('styles')
 
     <style>
         body {

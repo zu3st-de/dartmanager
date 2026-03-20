@@ -55,25 +55,33 @@
 
 
         {{-- SPIELER FILTER --}}
-        <select id="playerFilter"
-            class="mb-6 w-full max-w-md bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-300">
+        @if ($tournament->status !== 'draft' && $tournament->status !== 'finished')
+            <select id="playerFilter"
+                class="mb-6 w-full max-w-md bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-300">
 
-            <option value="">Alle Spieler</option>
+                <option value="">Alle Spieler</option>
 
-            @foreach ($players as $player)
-                <option value="{{ $player->id }}">
-                    {{ $player->name }}
-                </option>
-            @endforeach
-        </select>
-
+                @foreach ($players as $player)
+                    <option value="{{ $player->id }}">
+                        {{ $player->name }}
+                    </option>
+                @endforeach
+            </select>
+        @endif
 
         {{-- CONTENT --}}
         <div id="followContent">
 
-            @include(
-                'public.partials.follow-content',
-                compact('groupData', 'koRounds', 'thirdPlaceMatches', 'tournament'))
+            {{-- 🟡 TURNIER STARTET DEMNÄCHST --}}
+            @if ($tournament->status === 'draft')
+                @include('public.partials.draft-animation', [
+                    'players' => $players,
+                ])
+            @else
+                @include(
+                    'public.partials.follow-content',
+                    compact('groupData', 'koRounds', 'thirdPlaceMatches', 'tournament'))
+            @endif
 
         </div>
         {{-- 🔥 VICTORY OVERLAY --}}
@@ -90,11 +98,11 @@
 
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
     <script>
         /* ============================================================
-                                                                                                                                    LOCAL STORAGE
-                                                                                                                                ============================================================ */
-
+                    LOCAL STORAGE
+                    ========================================================== */
         function getOpenGroups() {
             return JSON.parse(localStorage.getItem("openGroups") || "[]");
         }
@@ -556,8 +564,8 @@
 
         }
     </script>
-
-
+@endpush
+@push('styles')
     <style>
         .updated {
             animation: flash 0.4s;

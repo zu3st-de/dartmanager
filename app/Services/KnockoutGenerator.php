@@ -63,7 +63,12 @@ class KnockoutGenerator
     {
         $rounds = (int) log($size, 2);
 
-        $sources = $this->generateGroupSources($tournament);
+        if ($tournament->mode === 'group_ko') {
+            $sources = $this->generateGroupSources($tournament);
+        } else {
+            // reines KO → keine Sources nötig
+            $sources = array_fill(0, $size, null);
+        }
 
         $position = 1;
 

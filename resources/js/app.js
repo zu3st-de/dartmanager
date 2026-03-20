@@ -36,7 +36,18 @@ Alpine.start();
 import { initAutoSim } from './modules/autosim';
 
 document.addEventListener('DOMContentLoaded', () => {
+
     initAutoSim();
+    initPlayers();
+
+    if (window.tournamentStatus === 'group_running') {
+        initGroups();
+    }
+
+    if (window.tournamentStatus === 'ko_running' || window.tournamentStatus === 'finished') {
+        initKnockout();
+    }
+
 });
 
 window.showView = function (viewName) {

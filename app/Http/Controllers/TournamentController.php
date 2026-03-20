@@ -1039,21 +1039,172 @@ class TournamentController extends Controller
         */ else {
 
                 /*
-            |--------------------------------------------------------------
-            | KO Baum generieren
-            |--------------------------------------------------------------
-            */
-
-                app(KnockoutGenerator::class)
-                    ->generateBracket($tournament);
+    |--------------------------------------------------------------------------
+    | 🔹 Spieler laden (Reihenfolge ist wichtig!)
+    |--------------------------------------------------------------------------
+    |
+    | Hier kannst du steuern:
+    |
+    | - ->orderBy('seed')        → für gesetzte Turniere
+    | - ->inRandomOrder()        → für zufällige Turniere
+    |
+    | Aktuell: neutral (DB Reihenfolge)
+    |
+    */
+                $players = $tournament->players()->get()->values();
 
 
                 /*
-            |--------------------------------------------------------------
-            | Turnierstatus setzen
-            |--------------------------------------------------------------
-            */
+    |--------------------------------------------------------------------------
+    | 🔹 Spieleranzahl & Zielgröße (2er-Potenz)
+    |--------------------------------------------------------------------------
+    |
+    | KO-System braucht:
+    | 2, 4, 8, 16, 32, ...
+    |
+    | Beispiel:
+    | 6 Spieler → 8er Bracket
+    |
+    */
+                $playerCount = $players->count();
+                $size = pow(2, ceil(log($playerCount, 2)));
 
+
+                /*
+    |--------------------------------------------------------------------------
+    | 🔹 Anzahl der Freilose (BYEs)
+    |--------------------------------------------------------------------------
+    |
+    | Differenz zwischen Bracketgröße und Spieleranzahl
+    |
+    */
+                $byes = $size - $playerCount;
+
+
+                /*
+    |--------------------------------------------------------------------------
+    | 🔹 Spieler + BYEs sinnvoll verteilen
+    |--------------------------------------------------------------------------
+    |
+    | Ziel:
+    |
+    | - KEINE BYE vs BYE Spiele
+    | - BYEs gehen an die ersten Spieler
+    | - kompatibel mit Seeding!
+    |
+    | Beispiel (6 Spieler):
+    |
+    | Input:
+    | [P1, P2, P3, P4, P5, P6]
+    |
+    | Output:
+    | [P1, null, P2, null, P3, P4, P5, P6]
+    |
+    */
+                $slotted = collect();
+
+                // 🔹 Spieler mit BYE (je ein Match)
+                for ($i = 0; $i < $byes; $i++) {
+
+                    $slotted->push($players[$i]); // Spieler
+                    $slotted->push(null);         // Freilos
+                }
+
+                // 🔹 restliche Spieler normal anhängen
+                for ($i = $byes; $i < $playerCount; $i++) {
+                    $slotted->push($players[$i]);
+                }
+
+                // 🔹 Sicherheitscheck (sollte eigentlich nie nötig sein)
+                if ($slotted->count() < $size) {
+                    $slotted->push(null);
+                }
+
+                $players = $slotted->values();
+
+
+                /*
+    |--------------------------------------------------------------------------
+    | 🔹 KO-Bracket Struktur erzeugen
+    |--------------------------------------------------------------------------
+    |
+    | Erstellt:
+    | - alle Runden
+    | - alle Spiele
+    |
+    | OHNE Spieler!
+    |
+    */
+                app(KnockoutGenerator::class)
+                    ->generatePlaceholderBracket($tournament, $size);
+
+
+                /*
+    |--------------------------------------------------------------------------
+    | 🔹 Spieler in Runde 1 einsetzen
+    |--------------------------------------------------------------------------
+    |
+    | Spieler werden paarweise verteilt:
+    |
+    | [P1, null, P2, null, P3, P4, ...]
+    |
+    | → ergibt:
+    |
+    | P1 vs BYE
+    | P2 vs BYE
+    | P3 vs P4
+    |
+    */
+                app(KnockoutGenerator::class)
+                    ->fillBracketPlayers($tournament, $players);
+
+
+                /*
+    |--------------------------------------------------------------------------
+    | 🔹 BYEs automatisch gewinnen lassen
+    |--------------------------------------------------------------------------
+    |
+    | Wichtig:
+    | handleWin() übernimmt:
+    |
+    | - winner_id setzen
+    | - Spieler in nächste Runde setzen
+    | - Turnierfluss korrekt weiterführen
+    |
+    | Dadurch:
+    | → Spieler mit BYE sind direkt in Runde 2
+    |
+    */
+                $games = Game::where('tournament_id', $tournament->id)
+                    ->where('round', 1)
+                    ->get();
+
+                foreach ($games as $game) {
+
+                    // Spieler 1 gewinnt gegen BYE
+                    if ($game->player1_id && !$game->player2_id) {
+
+                        app(TournamentEngine::class)
+                            ->handleWin($game, $game->player1_id);
+                    }
+
+                    // Spieler 2 gewinnt gegen BYE
+                    if ($game->player2_id && !$game->player1_id) {
+
+                        app(TournamentEngine::class)
+                            ->handleWin($game, $game->player2_id);
+                    }
+                }
+
+
+                /*
+    |--------------------------------------------------------------------------
+    | 🔹 Turnierstatus setzen
+    |--------------------------------------------------------------------------
+    |
+    | Das Turnier läuft jetzt im KO-Modus.
+    |
+    */
                 $tournament->update([
                     'status' => 'ko_running'
                 ]);
@@ -1239,6 +1390,7 @@ class TournamentController extends Controller
 
 
         /*
+        
     |--------------------------------------------------------------------------
     | Spiel aktualisieren
     |--------------------------------------------------------------------------
@@ -1248,6 +1400,28 @@ class TournamentController extends Controller
     */
 
         $game->refresh();
+
+
+        /*
+|--------------------------------------------------------------------------
+| 🔥 NÄCHSTES SPIEL ERMITTELN (NEU)
+|--------------------------------------------------------------------------
+|
+| KO Logik:
+| nächstes Spiel = round + 1
+| position = ceil(position / 2)
+|
+*/
+        $nextGame = null;
+
+        if ($game->group_id === null && $game->round !== null) {
+
+            $nextGame = \App\Models\Game::where('tournament_id', $tournament->id)
+                ->where('round', $game->round + 1)
+                ->where('position', (int) ceil($game->position / 2))
+                ->with(['player1', 'player2'])
+                ->first();
+        }
 
 
         /*
@@ -1268,6 +1442,15 @@ class TournamentController extends Controller
                 'winner_id' => $game->winner_id,
                 'player1_score' => $game->player1_score,
                 'player2_score' => $game->player2_score,
+                // nächstes Spiel
+                'next_game_id' => $nextGame?->id,
+
+                'next_player1_id' => $nextGame?->player1_id,
+                'next_player2_id' => $nextGame?->player2_id,
+
+                // Namen direkt für UI
+                'next_player1_name' => optional($nextGame?->player1)->name,
+                'next_player2_name' => optional($nextGame?->player2)->name,
             ]);
         }
 
@@ -2053,6 +2236,41 @@ class TournamentController extends Controller
                     $nextGame->save();
                 }
             }
+
+            /*
+|--------------------------------------------------------------------------
+| 🥉 Spiel um Platz 3 ebenfalls bereinigen
+|--------------------------------------------------------------------------
+*/
+            $thirdPlaceGame = Game::where('tournament_id', $tournament->id)
+                ->where('is_third_place', true)
+                ->first();
+
+            if ($thirdPlaceGame && $oldWinnerId) {
+
+                // 👉 LOSER bestimmen (nicht Winner!)
+                $loserId = ($oldWinnerId === $game->player1_id)
+                    ? $game->player2_id
+                    : $game->player1_id;
+
+                if ($thirdPlaceGame->player1_id === $loserId) {
+                    $thirdPlaceGame->player1_id = null;
+                }
+
+                if ($thirdPlaceGame->player2_id === $loserId) {
+                    $thirdPlaceGame->player2_id = null;
+                }
+
+                // Ergebnis zurücksetzen wenn nötig
+                if (!$thirdPlaceGame->player1_id || !$thirdPlaceGame->player2_id) {
+                    $thirdPlaceGame->player1_score = null;
+                    $thirdPlaceGame->player2_score = null;
+                    $thirdPlaceGame->winner_id     = null;
+                    $thirdPlaceGame->winning_rest  = null;
+                }
+
+                $thirdPlaceGame->save();
+            }
         });
 
 
@@ -2106,6 +2324,22 @@ class TournamentController extends Controller
 
     public function resetKo(Tournament $tournament)
     {
+        /*
+|--------------------------------------------------------------------------
+| 🔒 Nur für Group-KO erlaubt
+|--------------------------------------------------------------------------
+|
+| Reine KO-Turniere haben keine Gruppenphase.
+| Daher macht ein KO-Reset hier keinen Sinn.
+|
+*/
+        if ($tournament->mode !== 'group_ko') {
+
+            return back()->with(
+                'error',
+                'KO-Reset ist nur bei Turnieren mit Gruppenphase möglich.'
+            );
+        }
         $this->authorizeTournament($tournament);
 
         DB::transaction(function () use ($tournament) {

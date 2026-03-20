@@ -106,7 +106,7 @@
             {{-- ========================================================
                 KO RESET (WICHTIG → MIT MODAL)
             ======================================================== --}}
-            @if ($tournament->status === 'ko_running')
+            @if ($tournament->status === 'ko_running' && $tournament->mode === 'group_ko')
                 <button type="button" @click="openResetKo = true"
                     class="bg-red-700 hover:bg-red-600 px-4 py-2 rounded-lg text-white">
                     🔁 KO-Phase zurücksetzen
@@ -118,10 +118,6 @@
                 TURNIER ABGESCHLOSSEN
             ======================================================== --}}
             @if ($tournament->status === 'finished')
-                <div class="text-green-400 text-sm self-center">
-                    Turnier abgeschlossen
-                </div>
-
                 <form method="POST" action="{{ route('tournaments.reopen', $tournament) }}"
                     onsubmit="return confirm('Turnier wirklich wieder öffnen?');">
                     @csrf

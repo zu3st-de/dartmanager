@@ -8,12 +8,12 @@
     <link rel="icon" href="{{ asset('images/favicon.ico') }}" type="image/x-icon">
     <title>
         @hasSection('title')
-        @yield('title') – {{ config('app.name') }}
+            @yield('title') – {{ config('app.name') }}
         @else
-        {{ config('app.name') }}
+            {{ config('app.name') }}
         @endif
     </title>
-
+    @stack('styles')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
@@ -23,9 +23,9 @@
         @include('layouts.navigation')
 
         @isset($header)
-        <header class="max-w-full mx-auto py-6 px-6">
-            {{ $header }}
-        </header>
+            <header class="max-w-full mx-auto py-6 px-6">
+                {{ $header }}
+            </header>
         @endisset
 
         <main class="max-w-full mx-auto px-6 pb-12">
