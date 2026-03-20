@@ -1,59 +1,161 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🎯 Dart Tournament Manager
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Ein webbasiertes Turnierverwaltungssystem für Dart-Turniere mit Unterstützung für Gruppen- und KO-Phasen.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## ✨ Features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+* 🧍 Spielerverwaltung (manuell & Bulk-Import)
+* 🎲 Zufällige Auslosung (Seeding)
+* 👥 Gruppenphase mit automatischer Tabellenberechnung
+* 🏆 KO-System mit automatischer Weitergabe der Gewinner
+* 🥉 Optionales Spiel um Platz 3
+* ⚡ Live-Ergebnis-Eingabe (AJAX)
+* 🔄 Automatische Aktualisierung von Folge-Spielen
+* 🧠 Intelligente Turnierlogik (BYEs, KO-Baum, etc.)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 🧱 Unterstützte Turniermodi
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### 1. KO-Turnier
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+* Direktes Ausscheidungssystem
+* Automatische BYE-Verteilung bei ungerader Spielerzahl
 
-## Laravel Sponsors
+### 2. Gruppen + KO
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+* Gruppenphase (Round Robin)
+* Frei definierbare Anzahl Gruppen & Aufsteiger
+* Automatischer Übergang in KO-Phase
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## ⚙️ Installation
 
-## Contributing
+### Voraussetzungen
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+* PHP >= 8.1
+* Composer
+* Laravel
+* MySQL / MariaDB
 
-## Code of Conduct
+### Setup
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+git clone https://github.com/DEIN_USERNAME/dart-tournament-manager.git
 
-## Security Vulnerabilities
+cd dart-tournament-manager
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+composer install
+cp .env.example .env
+php artisan key:generate
+```
 
-## License
+### Datenbank
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+php artisan migrate
+```
+
+### Start
+
+```bash
+php artisan serve
+```
+
+---
+
+## 🕹️ Nutzung
+
+1. Turnier erstellen
+2. Spieler hinzufügen (einzeln oder per Liste)
+3. Auslosung durchführen
+4. Turnier starten
+5. Ergebnisse eintragen
+6. KO-Phase automatisch generieren
+
+---
+
+## 🧠 Architektur (vereinfacht)
+
+### Controller
+
+* Verarbeitet HTTP Requests
+* Übergibt Logik an Services
+
+### Services
+
+* `GroupGenerator` → erstellt Gruppen
+* `KnockoutGenerator` → erstellt KO-Baum
+* `TournamentEngine` → verarbeitet Spielverläufe
+
+### Models
+
+* `Tournament`
+* `Game`
+* `Player`
+* `Group`
+
+---
+
+## 🔄 Spiel-Logik
+
+* Ergebnisse werden serverseitig verarbeitet
+* Gewinner werden automatisch ins nächste Spiel gesetzt
+* Änderungen propagieren durch den gesamten KO-Baum
+* Spiel um Platz 3 wird automatisch befüllt (optional)
+
+---
+
+## 📡 Live-Updates
+
+* Ergebnisse werden per AJAX gespeichert
+* Nur betroffene Spiele werden aktualisiert
+* Kein vollständiger Seiten-Reload notwendig
+
+---
+
+## 🔒 Sicherheit
+
+* Zugriff nur für Turnierbesitzer
+* Validierung aller Eingaben
+* Transaktionen für kritische Operationen
+
+---
+
+## 📜 Lizenz
+
+Dieses Projekt ist unter der **GNU General Public License v3.0 (GPL-3.0)** veröffentlicht.
+
+Das bedeutet:
+
+* ✅ Nutzung erlaubt
+* ✅ Veränderung erlaubt
+* ✅ Weitergabe erlaubt
+* ❗ Änderungen müssen ebenfalls unter GPL veröffentlicht werden
+
+---
+
+## 🙌 Mitwirken
+
+Pull Requests sind willkommen!
+
+Für größere Änderungen bitte vorher ein Issue erstellen.
+
+---
+
+## 📌 Roadmap (Ideen)
+
+* [ ] WebSockets / Live-Multiplayer
+* [ ] UI/UX Verbesserungen
+* [ ] Statistiken & Spielerhistorie
+* [ ] API für externe Apps
+* [ ] Mobile Optimierung
+
+---
+
+## ❤️ Credits
+
+Entwickelt mit Laravel und viel Kaffee ☕
