@@ -35,9 +35,26 @@ class Tournament extends Model
     {
         return $this->hasMany(Game::class);
     }
-
     public function groups()
     {
         return $this->hasMany(Group::class);
+    }
+    /**
+     * ================================================================
+     * Child Turniere (z.B. Lucky Loser)
+     * ================================================================
+     */
+    public function children()
+    {
+        return $this->hasMany(Tournament::class, 'parent_id');
+    }
+    /**
+     * ================================================================
+     * Parent Turnier
+     * ================================================================
+     */
+    public function parent()
+    {
+        return $this->belongsTo(Tournament::class, 'parent_id');
     }
 }

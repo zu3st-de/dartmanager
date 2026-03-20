@@ -1804,6 +1804,11 @@ class TournamentController extends Controller
             $tournament->update([
                 'status' => 'ko_running'
             ]);
+
+            // 🔥 Lucky Loser Turnier erstellen
+            if ($tournament->has_lucky_loser) {
+                $this->createLuckyLoserTournament($tournament, $tables);
+            }
         });
 
 
@@ -2614,5 +2619,101 @@ class TournamentController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * ================================================================
+     * Lucky Loser Turnier erstellen
+     * ================================================================
+     *
+     * Erstellt ein separates KO-Turnier mit allen nicht qualifizierten Spielern.
+     *
+     * Ablauf:
+     * - Qualifizierte Spieler bestimmen
+     * - Restspieler sammeln
+     * - zufällig mischen
+     * - neues Turnier erstellen
+     * - KO generieren
+     * - optional ins TV hängen
+     */
+    private function createLuckyLoserTournament(Tournament $tournament, array $tables)
+    {
+        /*
+    |--------------------------------------------------------------------------
+    | Bereits vorhanden? (Schutz vor Doppel-Erstellung)
+    |--------------------------------------------------------------------------
+    */
+        if ($tournament->children()->exists()) {
+            return;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Qualifizierte Spieler bestimmen
+    |--------------------------------------------------------------------------
+    */
+        $qualifiedIds = collect();
+
+        foreach ($tables as $groupName => $table) {
+
+            $qualifiedIds = $qualifiedIds->merge(
+                collect($table)
+                    ->take($tournament->group_advance_count)
+                    ->pluck('player.id')
+            );
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Restspieler = Lucky Loser Pool
+    |--------------------------------------------------------------------------
+    */
+        $losers = $tournament->players
+            ->whereNotIn('id', $qualifiedIds)
+            ->shuffle();
+
+        /*
+    |--------------------------------------------------------------------------
+    | Abbruch wenn zu wenig Spieler
+    |--------------------------------------------------------------------------
+    */
+        if ($losers->count() < 2) {
+            return;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Neues Turnier erstellen
+    |--------------------------------------------------------------------------
+    */
+        $lucky = Tournament::create([
+            'name' => $tournament->name . ' - Lucky Loser',
+            'user_id' => $tournament->user_id,
+            'mode' => 'ko',
+            'status' => 'draft',
+            'parent_id' => $tournament->id,
+        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | Spieler zuweisen
+    |--------------------------------------------------------------------------
+    */
+        foreach ($losers as $player) {
+            $lucky->players()->create([
+                'name' => $player->name,
+                'seed' => $player->seed,
+            ]);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Optional: automatisch ins TV aufnehmen
+    |--------------------------------------------------------------------------
+    */
+        \App\Models\TvTournament::create([
+            'tournament_id' => $lucky->id,
+            'position' => 999
+        ]);
     }
 }

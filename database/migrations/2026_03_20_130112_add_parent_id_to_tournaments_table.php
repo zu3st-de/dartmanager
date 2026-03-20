@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('tv_tournaments', function (Blueprint $table) {
-            if (!Schema::hasColumn('tv_tournaments', 'rotation_time')) {
-                $table->integer('rotation_time')->default(20);
+        Schema::table('tournaments', function (Blueprint $table) {
+            if (!Schema::hasColumn('tournaments', 'parent_id')) {
+                $table->foreignId('parent_id')
+                    ->nullable()
+                    ->constrained('tournaments')
+                    ->nullOnDelete();
             }
         });
     }
@@ -23,7 +26,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('tv_tournaments', function (Blueprint $table) {
+        Schema::table('tournaments', function (Blueprint $table) {
             //
         });
     }
