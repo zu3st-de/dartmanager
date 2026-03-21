@@ -69,7 +69,7 @@
 
                         {{-- SUBMIT --}}
                         <button type="submit"
-                            class="absolute top-2 right-3 text-green-400 hover:text-green-300 text-sm">
+                            class="save-btn absolute top-2 right-3 text-green-400 hover:text-green-300 text-sm">
                             ✅
                         </button>
 

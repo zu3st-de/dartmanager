@@ -7,6 +7,7 @@ use App\Models\Game;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 use App\Services\KnockoutGenerator;
 use App\Services\TournamentEngine;
@@ -74,8 +75,7 @@ class TournamentController extends Controller
     {
         /*
     |--------------------------------------------------------------
-    | Turniere des aktuellen Users laden
-    |--------------------------------------------------------------
+    | Turniere des aktuellen Users laden |--------------------------------------------------------------
     |
     | auth()->user()
     | → aktuell eingeloggter Benutzer
@@ -90,6 +90,7 @@ class TournamentController extends Controller
 
         $tournaments = auth()->user()
             ->tournaments()
+            ->whereNotIn('status', ['archived'])
             ->latest()
             ->get();
 
@@ -481,7 +482,7 @@ class TournamentController extends Controller
     | Hier wird der erste gefundene Wert verwendet.
     |
     | Fallback:
-    | best_of = 3
+    | best_of = 1
     |
     */
 
@@ -489,7 +490,7 @@ class TournamentController extends Controller
             ->whereNotNull('group_id')
             ->pluck('best_of')
             ->unique()
-            ->first() ?? 3;
+            ->first() ?? 1;
 
 
         /*
@@ -2013,61 +2014,84 @@ class TournamentController extends Controller
 | 5. Turnierstatus zurücksetzen
 |
 */
-
     public function reset(Request $request, Tournament $tournament)
     {
         /*
     |--------------------------------------------------------------------------
     | Sicherheitsprüfung
     |--------------------------------------------------------------------------
+    |
+    | Nur der Besitzer des Turniers darf einen Reset durchführen.
+    |
     */
-
         $this->authorizeTournament($tournament);
 
 
         /*
     |--------------------------------------------------------------------------
-    | Bestätigungsname validieren
+    | Bestätigungsname validieren (Willensbestätigung)
     |--------------------------------------------------------------------------
+    |
+    | Der Benutzer muss den exakten Turniernamen eingeben.
+    |
+    | Diese Prüfung dient NICHT als Sicherheitsmechanismus,
+    | sondern als Schutz vor versehentlichen Aktionen.
+    |
+    | WICHTIG:
+    | - Fehler werden in einen eigenen Error-Bag ("reset") gelegt
+    | - Dadurch kann das Frontend gezielt das richtige Modal öffnen
+    |
     */
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'confirm_name' => ['required', 'in:' . $tournament->name],
+            ],
+            [
+                'confirm_name.in' => 'Turniername stimmt nicht überein'
+            ]
+        );
 
-        $request->validate([
-            'confirm_name' => ['required', 'in:' . $tournament->name],
-        ]);
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator, 'reset') // 🔥 eigener Error-Bag
+                ->withInput();
+        }
 
 
         /*
     |--------------------------------------------------------------------------
     | Reset innerhalb einer Datenbank-Transaktion
     |--------------------------------------------------------------------------
+    |
+    | Stellt sicher:
+    | - keine halbfertigen Zustände
+    | - vollständiger Rollback bei Fehlern
+    |
     */
-
         DB::transaction(function () use ($tournament) {
 
             /*
-        |--------------------------------------------------------------
+        |--------------------------------------------------------------------------
         | Alle Spiele löschen
-        |--------------------------------------------------------------
+        |--------------------------------------------------------------------------
         */
-
             $tournament->games()->delete();
 
 
             /*
-        |--------------------------------------------------------------
-        | Gruppen löschen
-        |--------------------------------------------------------------
+        |--------------------------------------------------------------------------
+        | Alle Gruppen löschen
+        |--------------------------------------------------------------------------
         */
-
             $tournament->groups()->delete();
 
 
             /*
-        |--------------------------------------------------------------
+        |--------------------------------------------------------------------------
         | Turnierstatus zurücksetzen
-        |--------------------------------------------------------------
+        |--------------------------------------------------------------------------
         */
-
             $tournament->update([
                 'status' => 'draft'
             ]);
@@ -2076,10 +2100,9 @@ class TournamentController extends Controller
 
         /*
     |--------------------------------------------------------------------------
-    | Zurück zur Turnierseite
+    | Redirect + Feedback
     |--------------------------------------------------------------------------
     */
-
         return redirect()
             ->route('tournaments.show', $tournament)
             ->with('success', 'Turnier wurde zurückgesetzt.');
@@ -2327,17 +2350,17 @@ class TournamentController extends Controller
 |
 */
 
-    public function resetKo(Tournament $tournament)
+    public function resetKo(Request $request, Tournament $tournament)
     {
         /*
-|--------------------------------------------------------------------------
-| 🔒 Nur für Group-KO erlaubt
-|--------------------------------------------------------------------------
-|
-| Reine KO-Turniere haben keine Gruppenphase.
-| Daher macht ein KO-Reset hier keinen Sinn.
-|
-*/
+    |--------------------------------------------------------------------------
+    | 🔒 Nur für Group-KO erlaubt
+    |--------------------------------------------------------------------------
+    |
+    | Reine KO-Turniere haben keine Gruppenphase,
+    | daher macht ein KO-Reset hier keinen Sinn.
+    |
+    */
         if ($tournament->mode !== 'group_ko') {
 
             return back()->with(
@@ -2345,8 +2368,57 @@ class TournamentController extends Controller
                 'KO-Reset ist nur bei Turnieren mit Gruppenphase möglich.'
             );
         }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Sicherheitsprüfung
+    |--------------------------------------------------------------------------
+    */
         $this->authorizeTournament($tournament);
 
+
+        /*
+    |--------------------------------------------------------------------------
+    | Bestätigungsname validieren (Willensbestätigung)
+    |--------------------------------------------------------------------------
+    |
+    | Gleiche Logik wie beim Komplett-Reset:
+    | Der Benutzer muss den Turniernamen korrekt eingeben.
+    |
+    | WICHTIG:
+    | Eigener Error-Bag ("resetKo"), damit:
+    | - nur das KO-Modal wieder geöffnet wird
+    | - keine Kollision mit anderen Fehlern entsteht
+    |
+    */
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'confirm_name' => ['required', 'in:' . $tournament->name],
+            ],
+            [
+                'confirm_name.in' => 'Turniername stimmt nicht überein'
+            ]
+        );
+
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator, 'resetKo') // 🔥 eigener Error-Bag
+                ->withInput();
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | KO-Reset innerhalb einer Transaktion
+    |--------------------------------------------------------------------------
+    |
+    | Es werden NUR KO-Spiele zurückgesetzt:
+    | - Gruppenspiele bleiben unverändert
+    | - Bracket-Struktur bleibt bestehen
+    |
+    */
         DB::transaction(function () use ($tournament) {
 
             /*
@@ -2354,10 +2426,10 @@ class TournamentController extends Controller
         | Alle KO Spiele laden
         |--------------------------------------------------------------------------
         |
-        | KO Spiele haben keine group_id
+        | KO Spiele erkennt man daran,
+        | dass sie keiner Gruppe zugeordnet sind (group_id = null)
         |
         */
-
             $games = $tournament->games()
                 ->whereNull('group_id')
                 ->get();
@@ -2367,39 +2439,44 @@ class TournamentController extends Controller
         |--------------------------------------------------------------------------
         | Spiele zurücksetzen
         |--------------------------------------------------------------------------
+        |
+        | Entfernt:
+        | - Spielerzuweisungen
+        | - Scores
+        | - Gewinner
+        |
         */
-
             foreach ($games as $game) {
 
                 $game->update([
-
                     'player1_id' => null,
                     'player2_id' => null,
-
                     'player1_score' => null,
                     'player2_score' => null,
-
                     'winner_id' => null,
-
                 ]);
             }
 
 
             /*
         |--------------------------------------------------------------------------
-        | Turnierstatus zurücksetzen
+        | Turnierstatus zurück auf Gruppenphase
         |--------------------------------------------------------------------------
         |
-        | Nach einem KO Reset kehrt das Turnier zur
-        | Gruppenphase zurück.
+        | Nach dem Reset kann die KO-Phase erneut gestartet werden.
         |
         */
-
             $tournament->update([
                 'status' => 'group_running'
             ]);
         });
 
+
+        /*
+    |--------------------------------------------------------------------------
+    | Redirect + Feedback
+    |--------------------------------------------------------------------------
+    */
         return back()->with('success', 'KO Phase zurückgesetzt.');
     }
     /*
@@ -2653,15 +2730,6 @@ class TournamentController extends Controller
     {
         /*
     |--------------------------------------------------------------------------
-    | Bereits vorhanden? (Schutz vor Doppel-Erstellung)
-    |--------------------------------------------------------------------------
-    */
-        if ($tournament->children()->exists()) {
-            return;
-        }
-
-        /*
-    |--------------------------------------------------------------------------
     | Qualifizierte Spieler bestimmen
     |--------------------------------------------------------------------------
     */
@@ -2685,31 +2753,47 @@ class TournamentController extends Controller
             ->whereNotIn('id', $qualifiedIds)
             ->shuffle();
 
-        /*
-    |--------------------------------------------------------------------------
-    | Abbruch wenn zu wenig Spieler
-    |--------------------------------------------------------------------------
-    */
         if ($losers->count() < 2) {
             return;
         }
 
         /*
     |--------------------------------------------------------------------------
-    | Neues Turnier erstellen
+    | 🔥 EXISTIERENDES TURNIER SUCHEN
     |--------------------------------------------------------------------------
     */
-        $lucky = Tournament::create([
-            'name' => $tournament->name . ' - Lucky Loser',
-            'user_id' => $tournament->user_id,
-            'mode' => 'ko',
-            'status' => 'draft',
-            'parent_id' => $tournament->id,
-        ]);
+        $lucky = $tournament->children()->first();
 
         /*
     |--------------------------------------------------------------------------
-    | Spieler zuweisen
+    | NEU ERSTELLEN ODER RESETTEN
+    |--------------------------------------------------------------------------
+    */
+        if (!$lucky) {
+
+            // 👉 ERSTELLEN
+            $lucky = Tournament::create([
+                'name' => $tournament->name . ' - Lucky Loser',
+                'user_id' => $tournament->user_id,
+                'mode' => 'ko',
+                'status' => 'draft',
+                'parent_id' => $tournament->id,
+            ]);
+        } else {
+
+            // 👉 RESET
+            $lucky->games()->delete();
+            $lucky->groups()->delete();
+            $lucky->players()->delete();
+
+            $lucky->update([
+                'status' => 'draft'
+            ]);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Spieler neu setzen
     |--------------------------------------------------------------------------
     */
         foreach ($losers as $player) {
@@ -2721,12 +2805,68 @@ class TournamentController extends Controller
 
         /*
     |--------------------------------------------------------------------------
-    | Optional: automatisch ins TV aufnehmen
+    | TV Eintrag nur beim ersten Mal
     |--------------------------------------------------------------------------
     */
-        \App\Models\TvTournament::create([
-            'tournament_id' => $lucky->id,
-            'position' => 999
+        if (!$lucky->tvTournament) {
+            \App\Models\TvTournament::create([
+                'tournament_id' => $lucky->id,
+                'position' => 999
+            ]);
+        }
+    }
+    /*
+|--------------------------------------------------------------------------
+| ARCHIVE
+|--------------------------------------------------------------------------
+*/
+
+    public function archive(Tournament $tournament)
+    {
+        // 🔒 Sicherheit!
+        $this->authorizeTournament($tournament);
+
+        $tournament->update([
+            'status' => 'archived'
         ]);
+
+        return redirect()
+            ->route('tournaments.index')
+            ->with('success', 'Turnier wurde archiviert');
+    }
+
+    /*
+|--------------------------------------------------------------------------
+| ARCHIV LISTE
+|--------------------------------------------------------------------------
+*/
+    public function archiveList()
+    {
+        $tournaments = Tournament::where('status', 'archived')
+            ->where('user_id', auth()->id())
+            ->latest()
+            ->get();
+
+        return view('tournaments.archive', compact('tournaments'));
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| RESTORE
+|--------------------------------------------------------------------------
+*/
+    public function restore(Tournament $tournament)
+    {
+        // 🔒 Sicherheit
+        $this->authorizeTournament($tournament);
+
+        $tournament->update([
+            'status' => 'finished' // oder 'draft' je nach gewünschtem Verhalten
+        ]);
+
+        return redirect()
+            ->route('tournaments.archive')
+            ->with('success', 'Turnier wiederhergestellt');
     }
 }

@@ -87,3 +87,49 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
     -moz-appearance: textfield;
 }
+
+.autosim-panel {
+    padding: 12px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    background: #1e1e1e;
+    color: #fff;
+    max-width: 300px;
+}
+
+.autosim-row {
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.autosim-row button {
+    margin-top: 5px;
+}
+
+.autosim-status {
+    margin-top: 10px;
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+.autosim-panel {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+
+    z-index: 9999;
+
+    background: rgba(20, 20, 20, 0.9);
+    backdrop-filter: blur(6px);
+
+    padding: 12px 16px;
+    border-radius: 10px;
+
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+
+    color: #fff;
+    font-size: 14px;
+
+    min-width: 200px;
+}

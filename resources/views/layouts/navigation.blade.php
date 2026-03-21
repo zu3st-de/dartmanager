@@ -24,6 +24,9 @@
             <a href="/tv" class="nav-link">
                 TV Rotation
             </a>
+            <a href="{{ route('tournaments.archive') }}" class="text-gray-400 hover:text-white text-sm">
+                📦 Archiv
+            </a>
             {{-- Aktive Turniere --}}
             @foreach ($activeTournaments ?? [] as $tournament)
                 <a href="{{ route('tournaments.show', $tournament) }}"

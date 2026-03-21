@@ -55,7 +55,7 @@
 
 
         {{-- SPIELER FILTER --}}
-        @if ($tournament->status !== 'draft' && $tournament->status !== 'finished')
+        @if ($tournament->status !== 'draft')
             <select id="playerFilter"
                 class="mb-6 w-full max-w-md bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-300">
 
@@ -84,13 +84,6 @@
             @endif
 
         </div>
-        {{-- 🔥 VICTORY OVERLAY --}}
-        <div id="victoryOverlay" class="victory-overlay">
-            <div class="victory-content">
-                <div class="victory-title">🏆 Turnier beendet!</div>
-                <div class="winner-name">{{ $tournament->winner->name ?? '' }}</div>
-            </div>
-        </div>
     </div>
 @endsection
 
@@ -101,8 +94,8 @@
 
     <script>
         /* ============================================================
-                    LOCAL STORAGE
-                    ========================================================== */
+                            LOCAL STORAGE
+                            ========================================================== */
         function getOpenGroups() {
             return JSON.parse(localStorage.getItem("openGroups") || "[]");
         }

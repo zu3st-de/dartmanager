@@ -79,7 +79,7 @@ class AppServiceProvider extends ServiceProvider
 
             $activeTournaments = Auth::user()
                 ->tournaments()
-                ->where('status', '!=', 'finished')
+                ->whereNotIn('status', ['archived'])
                 ->orderBy('created_at')
                 ->get(['id', 'name', 'status']);
 

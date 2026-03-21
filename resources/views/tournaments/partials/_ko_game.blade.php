@@ -5,8 +5,9 @@
 
         {{-- 🔹 SPIEL NOCH OFFEN --}}
         @if (!$game->winner_id && $tournament->status === 'ko_running')
-            <form method="POST" action="{{ route('games.updateScore', $game) }}" class="score-form"
-                data-url="{{ route('games.updateScore', $game) }}" data-game-id="{{ $game->id }}">
+            <form method="POST" action="{{ route('games.updateScore', $game) }}" class="simulate-ko-form score-form"
+                data-url="{{ route('games.updateScore', $game) }}" data-game-id="{{ $game->id }}"
+                data-round="{{ $game->round }}">
 
                 @csrf
 
@@ -26,7 +27,8 @@
                         class="score-input w-12 bg-gray-900 border border-gray-700 rounded text-center text-white">
                 </div>
 
-                <button type="submit" class="absolute top-2 right-3 text-green-400 hover:text-green-300 text-sm">
+                <button type="button"
+                    class="save-btn absolute top-2 right-3 text-green-400 hover:text-green-300 text-sm">
                     ✅
                 </button>
             </form>
@@ -38,7 +40,7 @@
 
                     @csrf
 
-                    <button type="submit" class="text-red-500 hover:text-red-400 text-xs">
+                    <button type="button" class="sav-btn text-red-500 hover:text-red-400 text-xs">
                         🗑
                     </button>
                 </form>

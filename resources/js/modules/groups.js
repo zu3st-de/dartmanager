@@ -74,10 +74,6 @@ export function initGroups() {
         reloadGame(data.game_id);
         reloadGroup(data.group_id);
 
-        // kleiner Delay wegen DOM update
-        setTimeout(() => {
-            scrollToNextGame(data.group_id);
-        }, 100);
     });
 
 
@@ -105,10 +101,6 @@ export function initGroups() {
         reloadGame(data.game_id);
         reloadGroup(data.group_id);
 
-        // kleiner Delay wegen DOM update
-        setTimeout(() => {
-            scrollToNextGame(data.group_id);
-        }, 100);
     });
 
 
@@ -135,10 +127,6 @@ export function initGroups() {
         reloadGame(data.game_id);
         reloadGroup(data.group_id);
 
-        // kleiner Delay wegen DOM update
-        setTimeout(() => {
-            scrollToNextGame(data.group_id);
-        }, 100);
     });
 
 

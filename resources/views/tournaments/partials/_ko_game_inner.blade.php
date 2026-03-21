@@ -3,8 +3,8 @@
 
 
     @if (!$game->winner_id && $tournament->status === 'ko_running')
-        <form method="POST" class="score-form" data-url="{{ route('games.updateScore', $game) }}"
-            data-game-id="{{ $game->id }}">
+        <form method="POST" class="simulate-ko-form score-form" data-url="{{ route('games.updateScore', $game) }}"
+            data-game-id="{{ $game->id }} data-round="{{ $game->round }}"">
 
             @csrf
 

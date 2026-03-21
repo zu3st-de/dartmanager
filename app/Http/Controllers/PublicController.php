@@ -7,40 +7,40 @@ use App\Services\GroupTableCalculator;
 
 class PublicController extends Controller
 {
+    /**
+     * ================================================================
+     * FOLLOW VIEW
+     * ================================================================
+     * Öffentliche Turnieransicht (Live / Follow)
+     */
     public function follow(Tournament $tournament)
     {
+        // Alle benötigten Relationen laden (Performance!)
         $tournament->load($this->relations());
 
-        $groupData = $this->buildGroupData($tournament);
-
-        $koRounds = $this->buildKoRounds($tournament);
-        $thirdPlaceMatches = $this->getThirdPlaceMatches($tournament);
-
-        [$winner, $secondPlace, $thirdPlace] =
-            $this->resolvePodium($tournament, $thirdPlaceMatches);
-
-        $players = $this->getPlayers($tournament);
-
-        return view('public.follow', compact(
-            'tournament',
-            'groupData',
-            'players',
-            'koRounds',
-            'thirdPlaceMatches',
-            'winner',
-            'secondPlace',
-            'thirdPlace'
-        ));
+        return view('public.follow', [
+            'tournament'        => $tournament,
+            'groupData'         => $this->buildGroupData($tournament),
+            'players'           => $this->getPlayers($tournament),
+            'koRounds'          => $this->buildKoRounds($tournament),
+            'thirdPlaceMatches' => $this->getThirdPlaceMatches($tournament),
+            ...$this->resolvePodium($tournament),
+        ]);
     }
 
 
+    /**
+     * ================================================================
+     * LIVE DATA (AJAX / POLLING)
+     * ================================================================
+     */
     public function followData(Tournament $tournament)
     {
         $tournament->load($this->relations());
 
         return response()->json([
-            'groups' => $this->buildGroupData($tournament),
-            'ko' => $this->buildKoRounds($tournament),
+            'groups'            => $this->buildGroupData($tournament),
+            'ko'                => $this->buildKoRounds($tournament),
             'tournament_status' => $tournament->status,
         ]);
     }
@@ -50,8 +50,8 @@ class PublicController extends Controller
     |--------------------------------------------------------------------------
     | RELATIONS
     |--------------------------------------------------------------------------
+    | Zentrale Definition aller benötigten Beziehungen
     */
-
     private function relations(): array
     {
         return [
@@ -60,7 +60,8 @@ class PublicController extends Controller
             'groups.games.player2',
             'games.player1',
             'games.player2',
-            'games.winner'
+            'games.winner',
+            'players' // 🔥 wichtig für Pre-Tournament
         ];
     }
 
@@ -69,27 +70,23 @@ class PublicController extends Controller
     |--------------------------------------------------------------------------
     | GROUP DATA
     |--------------------------------------------------------------------------
+    | Bereitet Gruppen inkl. Tabelle + Spielstatus auf
     */
-
     private function buildGroupData(Tournament $tournament): array
     {
-        $groupData = [];
-
-        foreach ($tournament->groups as $group) {
+        return $tournament->groups->map(function ($group) {
 
             $games = $group->games;
 
-            $groupData[] = [
-                'group' => $group,
-                'table' => app(GroupTableCalculator::class)->calculate($group),
-                'games' => $games,
-                'lastGame' => $games->whereNotNull('winner_id')->sortByDesc('updated_at')->first(),
+            return [
+                'group'       => $group,
+                'table'       => app(GroupTableCalculator::class)->calculate($group),
+                'games'       => $games,
+                'lastGame'    => $games->whereNotNull('winner_id')->sortByDesc('updated_at')->first(),
                 'currentGame' => $games->whereNull('winner_id')->sortBy('id')->first(),
-                'nextGame' => $games->whereNull('winner_id')->sortBy('id')->skip(1)->first(),
+                'nextGame'    => $games->whereNull('winner_id')->sortBy('id')->skip(1)->first(),
             ];
-        }
-
-        return $groupData;
+        })->toArray();
     }
 
 
@@ -97,8 +94,8 @@ class PublicController extends Controller
     |--------------------------------------------------------------------------
     | KO ROUNDS
     |--------------------------------------------------------------------------
+    | Gruppiert alle KO-Spiele nach Runden
     */
-
     private function buildKoRounds(Tournament $tournament)
     {
         return $tournament->games
@@ -114,10 +111,9 @@ class PublicController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | THIRD PLACE
+    | THIRD PLACE MATCHES
     |--------------------------------------------------------------------------
     */
-
     private function getThirdPlaceMatches(Tournament $tournament)
     {
         return $tournament->games
@@ -127,11 +123,10 @@ class PublicController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | PODIUM
+    | PODIUM (1., 2., 3. Platz)
     |--------------------------------------------------------------------------
     */
-
-    private function resolvePodium(Tournament $tournament, $thirdPlaceMatches): array
+    private function resolvePodium(Tournament $tournament): array
     {
         $winner = null;
         $secondPlace = null;
@@ -143,36 +138,78 @@ class PublicController extends Controller
             ->first();
 
         if ($final && $final->winner) {
-
             $winner = $final->winner;
 
-            $secondPlace =
-                $final->player1_id === $final->winner_id
+            $secondPlace = $final->player1_id === $final->winner_id
                 ? $final->player2
                 : $final->player1;
         }
 
-        $thirdPlaceMatch = $thirdPlaceMatches->first();
+        $thirdPlaceMatch = $this->getThirdPlaceMatches($tournament)->first();
 
         if ($thirdPlaceMatch && $thirdPlaceMatch->winner) {
             $thirdPlace = $thirdPlaceMatch->winner;
         }
 
-        return [$winner, $secondPlace, $thirdPlace];
+        return [
+            'winner'      => $winner,
+            'secondPlace' => $secondPlace,
+            'thirdPlace'  => $thirdPlace,
+        ];
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | PLAYERS
+    | PLAYERS (WICHTIG!)
     |--------------------------------------------------------------------------
+    | Liefert:
+    | - echte Turnier-Spieler (immer vorhanden)
+    | - + bekannte Profi-Spieler (für Animation / Fallback)
     */
-
     private function getPlayers(Tournament $tournament)
     {
-        return $tournament->groups
-            ->flatMap(fn($g) => $g->players)
-            ->unique('id')
+        // ✅ echte Spieler (Hauptquelle)
+        $players = $tournament->players ?? collect();
+
+        // 🔥 Profi-Spieler (immer gleiche Struktur!)
+        $proPlayers = collect([
+            'Gabriel Clemens',
+            'Martin Schindler',
+            'Max Hopp',
+            'Florian Hempel',
+            'Ricardo Pietreczko',
+
+            'Luke Humphries',
+            'Michael van Gerwen',
+            'Gerwyn Price',
+            'Peter Wright',
+            'Nathan Aspinall',
+
+            'Rob Cross',
+            'Jonny Clayton',
+            'James Wade',
+            'Gary Anderson',
+            'Dave Chisnall',
+
+            'Dimitri Van den Bergh',
+            'Danny Noppert',
+            'Chris Dobey',
+            'Stephen Bunting',
+            'Joe Cullen',
+
+            'Luke Littler',
+            'Gian van Veen',
+        ])->map(fn($name) => (object) [
+            'id'   => 'pro_' . md5($name),
+            'name' => $name,
+            'is_pro' => true
+        ]);
+
+        // 🔁 kombinieren + Duplikate entfernen
+        return $players
+            ->concat($proPlayers)
+            ->unique('name')
             ->values();
     }
 }

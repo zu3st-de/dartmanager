@@ -1,5 +1,7 @@
-<div x-data="{ openReset: false, openResetKo: false }" class="h-full bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+<div x-data="{ openReset: false, openResetKo: false }" x-init="@if ($errors->getBag('reset')->has('confirm_name')) openReset = true @endif
 
+@if ($errors->getBag('resetKo')->has('confirm_name')) openResetKo = true @endif"
+    class="h-full bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
     <div class="flex flex-col lg:flex-row lg:items-center gap-4">
 
         {{-- ============================================================
@@ -63,7 +65,26 @@
                 🏆 Bracket
             </button>
 
+            @if (config('app.autosim_enabled') && in_array($tournament->status, ['group_running', 'ko_running']))
+                <div class="autosim-panel">
 
+                    <div class="autosim-row">
+                        <label>Speed: <span id="autosimSpeedLabel">1500ms</span></label>
+                        <input type="range" id="autosimSpeed" min="1000" max="3500" step="100"
+                            value="1500">
+                    </div>
+
+                    <div class="autosim-row">
+                        <button id="autosimStart">▶ Start</button>
+                        <button id="autosimStop" disabled>⏹ Stop</button>
+                    </div>
+
+                    <div class="autosim-status" id="autosimStatus">
+                        Status: Idle
+                    </div>
+
+                </div>
+            @endif
 
             {{-- ========================================================
                 GRUPPENPHASE → KO START
@@ -144,14 +165,23 @@
             </h3>
 
             <p class="text-sm text-gray-400 mb-4">
-                Alle Spiele werden gelöscht.<br>
+                Alle Spiele und Gruppen werden gelöscht.<br>
                 Gib zur Bestätigung den Turniernamen ein:
             </p>
 
             <form method="POST" action="{{ route('tournaments.reset', $tournament) }}">
                 @csrf
 
-                <input type="text" name="confirm_name" placeholder="{{ $tournament->name }}"
+                {{-- ❌ Fehler anzeigen --}}
+                @error('confirm_name', 'reset')
+                    <div class="text-red-400 text-sm mb-2">
+                        {{ $message }}
+                    </div>
+                @enderror
+
+                {{-- 🧠 Input --}}
+                <input type="text" name="confirm_name" value="{{ old('confirm_name') }}"
+                    placeholder="{{ $tournament->name }}"
                     class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white mb-4" required>
 
                 <div class="flex justify-end gap-3">
@@ -183,14 +213,22 @@
             <p class="text-sm text-gray-400 mb-4">
                 Alle KO-Spiele werden gelöscht.<br>
                 Gruppenergebnisse bleiben erhalten.<br><br>
-
                 Gib zur Bestätigung den Turniernamen ein:
             </p>
 
             <form method="POST" action="{{ route('tournaments.resetKo', $tournament) }}">
                 @csrf
 
-                <input type="text" name="confirm_name" placeholder="{{ $tournament->name }}"
+                {{-- ❌ Fehler anzeigen --}}
+                @error('confirm_name', 'resetKo')
+                    <div class="text-red-400 text-sm mb-2">
+                        {{ $message }}
+                    </div>
+                @enderror
+
+                {{-- 🧠 Input --}}
+                <input type="text" name="confirm_name" value="{{ old('confirm_name') }}"
+                    placeholder="{{ $tournament->name }}"
                     class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white mb-4" required>
 
                 <div class="flex justify-end gap-3">
@@ -207,5 +245,4 @@
 
         </div>
     </div>
-
 </div>

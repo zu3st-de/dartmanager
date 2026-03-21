@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'autosim_enabled' => env('AUTOSIM_ENABLED', false),
     'registration_enabled' => env('REGISTRATION_ENABLED', true),
     /*
     |--------------------------------------------------------------------------

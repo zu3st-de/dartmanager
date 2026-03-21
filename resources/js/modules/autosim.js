@@ -1,106 +1,285 @@
 /*
 |--------------------------------------------------------------------------
-| ⚙️ AUTO SIMULATION MODULE (FINAL STABLE)
+| AUTO SIMULATION MODULE (FINAL CLEAN VERSION)
 |--------------------------------------------------------------------------
 |
-| Unterstützt:
-| - Gruppenphase Simulation
-| - KO-Phase Simulation
-| - AJAX kompatibel
-| - läuft rekursiv bis alles fertig ist
+| Prinzip:
+| - Steuerung erfolgt über Tournament Status (window.tournamentStatus)
+| - group → simulateGroup()
+| - ko    → simulateKoRound()
 |
-| Features:
-| - nutzt echten DOM State (keine falschen Flags)
-| - robust gegen Reloads
-| - kein doppeltes Ausführen
+| WICHTIG:
+| - Es wird ausschließlich mit `.save-btn` gearbeitet
+| - Kein Fallback, kein Submit-Hack
+|
+| BESONDERHEIT:
+| - Wenn in der Gruppenphase kein Save-Button mehr gefunden wird:
+|   → Gruppenphase fertig
+|   → Reload (damit KO-Button sichtbar wird)
+|   → Autosim wird gestoppt
 |
 */
 
+
 /*
 |--------------------------------------------------------------------------
-| ⏱ Geschwindigkeit aus URL lesen
+| GLOBAL STATE
 |--------------------------------------------------------------------------
-|
-| Beispiel:
-| ?autosim=ko&speed=500
-|
 */
-function getSpeed() {
-    const params = new URLSearchParams(window.location.search);
-    return parseInt(params.get('speed')) || 800;
+let autosimRunning = false;
+let autosimTimeout = null;
+let autosimSpeed = 800;
+
+let UI = null;
+
+
+/*
+|--------------------------------------------------------------------------
+| UI UPDATE
+|--------------------------------------------------------------------------
+*/
+function updateUI() {
+    if (!UI) return;
+
+    UI.startBtn.disabled = autosimRunning;
+    UI.stopBtn.disabled = !autosimRunning;
+
+    UI.statusBox.innerText = autosimRunning
+        ? "Status: Running"
+        : "Status: Idle";
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| 🟢 GRUPPENPHASE SIMULATION
+| START
 |--------------------------------------------------------------------------
+*/
+function startAutoSim() {
+    if (autosimRunning) return;
+
+    autosimRunning = true;
+
+    console.log("AutoSim gestartet");
+
+    localStorage.setItem('autosim_running', '1');
+
+    updateUI();
+    runAutoSim();
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| STOP
+|--------------------------------------------------------------------------
+*/
+function stopAutoSim() {
+    autosimRunning = false;
+
+    if (autosimTimeout) {
+        clearTimeout(autosimTimeout);
+        autosimTimeout = null;
+    }
+
+    localStorage.removeItem('autosim_running');
+
+    console.log("AutoSim gestoppt");
+
+    updateUI();
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| MAIN LOOP
+|--------------------------------------------------------------------------
+|
+| Ablauf:
+| 1. Status prüfen
+| 2. passende Simulation ausführen
+| 3. wenn nichts mehr zu simulieren → abhängig von Phase reagieren
+|
+*/
+function runAutoSim() {
+
+    if (!autosimRunning) return;
+
+    const status = window.tournamentStatus;
+
+    /*
+    |--------------------------------------------------------------------------
+    | GRUPPENPHASE
+    |--------------------------------------------------------------------------
+    */
+    if (status === 'group_running') {
+
+        const simulated = simulateGroup();
+
+        // ❗ Keine Buttons mehr → Gruppen fertig
+        if (!simulated) {
+
+            console.log("Gruppen fertig → reload & stop");
+
+            stopAutoSim();
+
+            // wichtig für KO-Button / neue UI
+            setTimeout(() => {
+                location.reload();
+            }, 500);
+
+            return;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KO-PHASE
+    |--------------------------------------------------------------------------
+    */
+    else if (status === 'ko_running') {
+
+        const simulated = simulateKoRound();
+
+        if (!simulated) {
+            console.log("KO fertig");
+            stopAutoSim();
+            //Siegerehrung / neue UI
+            setTimeout(() => {
+                location.reload();
+            }, 500);
+            return;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | UNBEKANNTER STATUS
+    |--------------------------------------------------------------------------
+    */
+    else {
+        console.log("Unbekannter Status → stop");
+        console.log(status);
+        stopAutoSim();
+        return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NÄCHSTER SCHRITT
+    |--------------------------------------------------------------------------
+    */
+    autosimTimeout = setTimeout(runAutoSim, autosimSpeed);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| GROUP SIMULATION
+|--------------------------------------------------------------------------
+|
+| - sucht offenes Spiel
+| - trägt Ergebnis ein
+| - klickt `.save-btn`
+|
+| RETURN:
+| true  → Spiel simuliert
+| false → keine Spiele mehr → Gruppenphase fertig
+|
 */
 function simulateGroup() {
 
     const groups = document.querySelectorAll('[data-group]');
     if (!groups.length) return false;
 
-    let currentIndex = parseInt(localStorage.getItem('autosimGroupIndex') || 0);
+    // 👉 merken welche Gruppe zuletzt dran war
+    let groupIndex = parseInt(localStorage.getItem('autosim_group_index') || 0);
 
-    for (let i = 0; i < groups.length; i++) {
+    const groupCount = groups.length;
 
-        const group = groups[(currentIndex + i) % groups.length];
+    for (let i = 0; i < groupCount; i++) {
+
+        // 🔁 nächste Gruppe (round robin)
+        const index = (groupIndex + i) % groupCount;
+        const group = groups[index];
+
         const forms = group.querySelectorAll('.simulate-group-form');
 
         for (const form of forms) {
 
+            const btn = form.querySelector('.save-btn');
+            if (!btn) continue;
+
             const inputs = form.querySelectorAll('input[type="number"]');
             if (inputs.length < 2) continue;
 
-            const p1 = inputs[0];
-            const p2 = inputs[1];
-
-            // bereits gespielt → skip
-            if (p1.value !== '' || p2.value !== '') continue;
+            // schon gespielt → skip
+            if (inputs[0].value !== '' || inputs[1].value !== '') continue;
 
             const bestOf = parseInt(form.dataset.bestof || 3);
             const needed = Math.ceil(bestOf / 2);
-            const winnerIsFirst = Math.random() < 0.5;
 
-            /*
-            |--------------------------------------------------------------------------
-            | Best-of 1 Sonderfall
-            |--------------------------------------------------------------------------
-            */
-            if (bestOf === 1) {
-
-                p1.value = winnerIsFirst ? 1 : 0;
-                p2.value = winnerIsFirst ? 0 : 1;
-
-                const restField = form.querySelector('input[name="winning_rest"]');
-                if (restField) {
-                    restField.value = Math.floor(Math.random() * 171);
-                }
-
+            if (Math.random() < 0.5) {
+                inputs[0].value = needed;
+                inputs[1].value = Math.floor(Math.random() * needed);
             } else {
-
-                if (winnerIsFirst) {
-                    p1.value = needed;
-                    p2.value = Math.floor(Math.random() * needed);
-                } else {
-                    p1.value = Math.floor(Math.random() * needed);
-                    p2.value = needed;
-                }
-
+                inputs[0].value = Math.floor(Math.random() * needed);
+                inputs[1].value = needed;
             }
 
-            // Fortschritt merken
-            localStorage.setItem(
-                'autosimGroupIndex',
-                (currentIndex + i + 1) % groups.length
-            );
+            // 👉 nächste Gruppe merken
+            localStorage.setItem('autosim_group_index', index + 1);
 
-            // AJAX Submit triggern
-            form.dispatchEvent(new Event('submit', { bubbles: true }));
+            btn.click();
 
             return true;
         }
+    }
+
+    // keine offenen Spiele mehr
+    localStorage.removeItem('autosim_group_index');
+    return false;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| KO SIMULATION
+|--------------------------------------------------------------------------
+|
+| - identisch zur Gruppenlogik
+| - arbeitet rundenweise automatisch
+|
+*/
+function simulateKoRound() {
+
+    const forms = document.querySelectorAll('.simulate-ko-form');
+    if (!forms.length) return false;
+
+    for (const form of forms) {
+
+        const btn = form.querySelector('.save-btn');
+        if (!btn) continue;
+
+        const inputs = form.querySelectorAll('input[type="number"]');
+        if (inputs.length < 2) continue;
+
+        if (inputs[0].value !== '' || inputs[1].value !== '') continue;
+
+        const bestOf = parseInt(form.dataset.bestof || 3);
+        const needed = Math.ceil(bestOf / 2);
+
+        if (Math.random() < 0.5) {
+            inputs[0].value = needed;
+            inputs[1].value = Math.floor(Math.random() * needed);
+        } else {
+            inputs[0].value = Math.floor(Math.random() * needed);
+            inputs[1].value = needed;
+        }
+
+        btn.click();
+
+        return true;
     }
 
     return false;
@@ -109,167 +288,43 @@ function simulateGroup() {
 
 /*
 |--------------------------------------------------------------------------
-| 🔴 KO-PHASE SIMULATION
+| INIT
 |--------------------------------------------------------------------------
-|
-| WICHTIG:
-| - nimmt IMMER die niedrigste offene Runde
-| - simuliert exakt 1 Spiel pro Durchlauf
-| - läuft rekursiv weiter
-|
 */
-function simulateKoRound() {
+document.addEventListener('DOMContentLoaded', () => {
 
-    const forms = document.querySelectorAll('.simulate-ko-form');
-    if (!forms.length) return false;
+    UI = {
+        startBtn: document.getElementById('autosimStart'),
+        stopBtn: document.getElementById('autosimStop'),
+        speedSlider: document.getElementById('autosimSpeed'),
+        speedLabel: document.getElementById('autosimSpeedLabel'),
+        statusBox: document.getElementById('autosimStatus')
+    };
 
-    /*
-    |--------------------------------------------------------------------------
-    | Offene Spiele filtern
-    |--------------------------------------------------------------------------
-    */
-    const openForms = Array.from(forms).filter(form => {
+    if (!UI.startBtn) return;
 
-        if (!form) return false;
+    UI.startBtn.addEventListener('click', startAutoSim);
+    UI.stopBtn.addEventListener('click', stopAutoSim);
 
-        const inputs = form.querySelectorAll('input[type="number"]');
-        if (!inputs || inputs.length < 2) return false;
-
-        // bereits gespielt → skip
-        if (inputs[0].value || inputs[1].value) return false;
-
-        return true;
+    UI.speedSlider?.addEventListener('input', () => {
+        autosimSpeed = parseInt(UI.speedSlider.value);
+        UI.speedLabel.innerText = autosimSpeed + 'ms';
     });
 
-    if (!openForms.length) return false;
+    updateUI();
 
-    /*
-    |--------------------------------------------------------------------------
-    | Früheste Runde bestimmen
-    |--------------------------------------------------------------------------
-    */
-    const rounds = openForms.map(f => parseInt(f.dataset.round));
-    const currentRound = Math.min(...rounds);
+    console.log("AutoSim bereit");
 
-    /*
-    |--------------------------------------------------------------------------
-    | Nur Spiele dieser Runde
-    |--------------------------------------------------------------------------
-    */
-    const roundForms = openForms.filter(f =>
-        parseInt(f.dataset.round) === currentRound
-    );
-
-    if (!roundForms.length) return false;
-
-    const form = roundForms[0];
-
-    const inputs = form.querySelectorAll('input[type="number"]');
-    if (!inputs || inputs.length < 2) return false;
-
-    /*
-    |--------------------------------------------------------------------------
-    | Best-of Logik
-    |--------------------------------------------------------------------------
-    */
-    const bestOf = parseInt(form.dataset.bestof || 3);
-    const needed = Math.ceil(bestOf / 2);
-
-    const winnerIsFirst = Math.random() < 0.5;
-
-    /*
-    |--------------------------------------------------------------------------
-    | Ergebnis setzen
-    |--------------------------------------------------------------------------
-    */
-    if (winnerIsFirst) {
-        inputs[0].value = needed;
-        inputs[1].value = Math.floor(Math.random() * needed);
-    } else {
-        inputs[0].value = Math.floor(Math.random() * needed);
-        inputs[1].value = needed;
+    // Auto-Resume nach Reload
+    if (localStorage.getItem('autosim_running') === '1') {
+        startAutoSim();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | AJAX Submit (leicht verzögert für DOM-Stabilität)
-    |--------------------------------------------------------------------------
-    */
-    setTimeout(() => {
-        form.dispatchEvent(
-            new Event('submit', { bubbles: true, cancelable: true })
-        );
-    }, 50);
-
-    return true;
-}
+});
 
 
 /*
 |--------------------------------------------------------------------------
-| 🔁 LOOP STEUERUNG (REKURSIV)
+| EXPORT (Vite)
 |--------------------------------------------------------------------------
-|
-| Führt Simulation solange aus bis nichts mehr zu tun ist
-|
 */
-function runAutoSim(mode) {
-
-    let simulated = false;
-
-    if (mode === 'groups') {
-        simulated = simulateGroup();
-    }
-
-    if (mode === 'ko') {
-        simulated = simulateKoRound();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Wenn nichts mehr simuliert wurde → STOP
-    |--------------------------------------------------------------------------
-    */
-    if (!simulated) {
-        console.log("AutoSim beendet.");
-        return;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Nächster Schritt
-    |--------------------------------------------------------------------------
-    */
-    setTimeout(() => {
-        runAutoSim(mode);
-    }, getSpeed());
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| 🚀 INIT
-|--------------------------------------------------------------------------
-|
-| Startet Simulation abhängig von URL Param
-|
-| Beispiele:
-| ?autosim=groups
-| ?autosim=ko
-| ?autosim=ko&speed=300
-|
-*/
-export function initAutoSim() {
-
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get('autosim');
-
-    if (!mode) return;
-
-    console.log("AutoSim gestartet:", mode);
-
-    // kleine Startverzögerung für DOM/AJAX
-    setTimeout(() => {
-        runAutoSim(mode);
-    }, getSpeed());
-}
+export function initAutoSim() { }
