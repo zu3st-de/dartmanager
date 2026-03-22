@@ -207,7 +207,9 @@ function simulateGroup() {
 
         for (const form of forms) {
 
-            const btn = form.querySelector('.save-btn');
+            const btn = document.querySelector(
+                `.save-btn[form="${form.id}"]`
+            );
             if (!btn) continue;
 
             const inputs = form.querySelectorAll('input[type="number"]');

@@ -2736,7 +2736,6 @@ class TournamentController extends Controller
         $qualifiedIds = collect();
 
         foreach ($tables as $groupName => $table) {
-
             $qualifiedIds = $qualifiedIds->merge(
                 collect($table)
                     ->take($tournament->group_advance_count)
@@ -2751,7 +2750,8 @@ class TournamentController extends Controller
     */
         $losers = $tournament->players
             ->whereNotIn('id', $qualifiedIds)
-            ->shuffle();
+            ->shuffle()
+            ->values();
 
         if ($losers->count() < 2) {
             return;
@@ -2759,43 +2759,29 @@ class TournamentController extends Controller
 
         /*
     |--------------------------------------------------------------------------
-    | 🔥 EXISTIERENDES TURNIER SUCHEN
+    | 🔥 Eindeutig das Lucky Turnier holen
     |--------------------------------------------------------------------------
     */
-        $lucky = $tournament->children()->first();
-
-        /*
-    |--------------------------------------------------------------------------
-    | NEU ERSTELLEN ODER RESETTEN
-    |--------------------------------------------------------------------------
-    */
-        if (!$lucky) {
-
-            // 👉 ERSTELLEN
-            $lucky = Tournament::create([
+        $lucky = Tournament::firstOrCreate(
+            [
+                'parent_id' => $tournament->id,
+                'type' => 'lucky_loser',
+            ],
+            [
                 'name' => $tournament->name . ' - Lucky Loser',
                 'user_id' => $tournament->user_id,
                 'mode' => 'ko',
                 'status' => 'draft',
-                'parent_id' => $tournament->id,
-            ]);
-        } else {
-
-            // 👉 RESET
-            $lucky->games()->delete();
-            $lucky->groups()->delete();
-            $lucky->players()->delete();
-
-            $lucky->update([
-                'status' => 'draft'
-            ]);
-        }
+            ]
+        );
 
         /*
     |--------------------------------------------------------------------------
-    | Spieler neu setzen
+    | 🔄 SPIELER SYNC (kein blindes delete mehr)
     |--------------------------------------------------------------------------
     */
+        $lucky->players()->delete();
+
         foreach ($losers as $player) {
             $lucky->players()->create([
                 'name' => $player->name,
@@ -2805,7 +2791,71 @@ class TournamentController extends Controller
 
         /*
     |--------------------------------------------------------------------------
-    | TV Eintrag nur beim ersten Mal
+    | 🔄 KO BRACKET RESET + NEU GENERIEREN
+    |--------------------------------------------------------------------------
+    */
+        $lucky->games()->delete();
+        $lucky->groups()->delete();
+
+        $playerCount = $lucky->players()->count();
+        $size = pow(2, ceil(log($playerCount, 2)));
+
+        // Struktur erzeugen
+        app(\App\Services\KnockoutGenerator::class)
+            ->generatePlaceholderBracket($lucky, $size);
+
+        // Spieler laden
+        $players = $lucky->players()->get()->values();
+
+        /*
+    |--------------------------------------------------------------------------
+    | BYE Logik (wie im Hauptturnier)
+    |--------------------------------------------------------------------------
+    */
+        $byes = $size - $playerCount;
+
+        $slotted = collect();
+
+        for ($i = 0; $i < $byes; $i++) {
+            $slotted->push($players[$i] ?? null);
+            $slotted->push(null);
+        }
+
+        for ($i = $byes; $i < $playerCount; $i++) {
+            $slotted->push($players[$i]);
+        }
+
+        $players = $slotted->values();
+
+        // Spieler einsetzen
+        app(\App\Services\KnockoutGenerator::class)
+            ->fillBracketPlayers($lucky, $players);
+
+        /*
+    |--------------------------------------------------------------------------
+    | BYEs automatisch weiterleiten
+    |--------------------------------------------------------------------------
+    */
+        $games = \App\Models\Game::where('tournament_id', $lucky->id)
+            ->where('round', 1)
+            ->get();
+
+        foreach ($games as $game) {
+
+            if ($game->player1_id && !$game->player2_id) {
+                app(\App\Services\TournamentEngine::class)
+                    ->handleWin($game, $game->player1_id);
+            }
+
+            if ($game->player2_id && !$game->player1_id) {
+                app(\App\Services\TournamentEngine::class)
+                    ->handleWin($game, $game->player2_id);
+            }
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | TV Eintrag nur einmal
     |--------------------------------------------------------------------------
     */
         if (!$lucky->tvTournament) {

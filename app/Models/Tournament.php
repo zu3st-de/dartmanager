@@ -19,6 +19,8 @@ class Tournament extends Model
         'has_third_place',
         'group_best_of',
         'status',
+        'parent_id',
+        'type',
     ];
 
     public function user()

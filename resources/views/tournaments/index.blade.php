@@ -45,13 +45,9 @@
 
                         </div>
                         @if ($tournament->status !== 'archived')
-                            <form method="POST" action="{{ route('tournaments.archive', $tournament) }}"
-                                onsubmit="return confirm('Turnier wirklich archivieren?')">
+                            <form method="POST" action="{{ route('tournaments.archive.store', $tournament) }}">
                                 @csrf
-
-                                <button class="btn btn-warning">
-                                    🗄 Archivieren
-                                </button>
+                                <button type="submit">Archivieren</button>
                             </form>
                         @endif
                     </div>

@@ -74,6 +74,15 @@ export function initGroups() {
         reloadGame(data.game_id);
         reloadGroup(data.group_id);
 
+        // 👉 prüfen ob alles fertig
+        setTimeout(() => {
+
+            if (allGamesFinished(data.group_id)) {
+                location.reload();
+            }
+
+        }, 400);
+
     });
 
 
@@ -93,7 +102,17 @@ export function initGroups() {
         e.preventDefault();
 
         const form = input.closest('.score-form');
+        const inputs = Array.from(form.querySelectorAll('.group-score-input'));
+        const index = inputs.indexOf(input);
 
+        // 👉 nächstes Feld
+        if (inputs[index + 1]) {
+            inputs[index + 1].focus();
+            inputs[index + 1].select();
+            return;
+        }
+
+        // 👉 letztes Feld → submit
         const data = await submitScore(form);
 
         if (!data || !data.success) return;
@@ -101,6 +120,14 @@ export function initGroups() {
         reloadGame(data.game_id);
         reloadGroup(data.group_id);
 
+        // 👉 prüfen ob alles fertig
+        setTimeout(() => {
+
+            if (allGamesFinished(data.group_id)) {
+                location.reload();
+            }
+
+        }, 400);
     });
 
 
@@ -127,6 +154,15 @@ export function initGroups() {
         reloadGame(data.game_id);
         reloadGroup(data.group_id);
 
+        // 👉 prüfen ob alles fertig
+        setTimeout(() => {
+
+            if (allGamesFinished(data.group_id)) {
+                location.reload();
+            }
+
+        }, 400);
+
     });
 
 
@@ -149,6 +185,7 @@ export function initGroups() {
             location.reload(); // ok für bulk
         });
     }
+
 
 }
 
@@ -245,3 +282,28 @@ window.reloadGame = function (gameId) {
 
         });
 };
+
+/*
+|--------------------------------------------------------------------------
+| Helfer Alle Spiele beendet
+|--------------------------------------------------------------------------
+*/
+function allGamesFinished() {
+
+    const buttons = document.querySelectorAll('.save-btn');
+
+    for (const btn of buttons) {
+
+        const formId = btn.getAttribute('form');
+
+        if (!formId) continue;
+
+        const form = document.getElementById(formId);
+
+        if (form) {
+            return false; // noch offenes Spiel
+        }
+    }
+
+    return true;
+}
