@@ -22,15 +22,15 @@ Route::get('/', fn() => view('welcome'));
 | 🌍 Öffentliche Seiten (kein Login nötig)
 |--------------------------------------------------------------------------
 */
-Route::get('/follow/{tournament}', [PublicController::class, 'follow'])
+Route::get('/follow/{tournament:public_id}', [PublicController::class, 'follow'])
     ->name('tournament.follow');
 
-Route::get('/follow/{tournament}/data', [PublicController::class, 'followData']);
+Route::get('/follow/{tournament:public_id}/data', [PublicController::class, 'followData']);
 
-Route::get('/tv/{tournament}', [TvController::class, 'show'])
+Route::get('/tv/{tournament:public_id}', [TvController::class, 'show'])
     ->name('tv.tournament');
 
-Route::get('/tv/{tournament}/data', [TvController::class, 'data'])
+Route::get('/tv/{tournament:public_id}/data', [TvController::class, 'data'])
     ->name('tv.tournament.data');
 
 Route::get('/tv', [TvController::class, 'rotation']);

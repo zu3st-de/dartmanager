@@ -20,9 +20,25 @@
                             {{ $tournament->name }}
                         </div>
 
+                        {{-- Hauptturnier --}}
                         <div class="bg-white p-4 rounded">
-                            {!! QrCode::size(444)->generate(url('/follow/' . $tournament->id)) !!}
+                            {!! QrCode::size(444)->generate(url('/follow/' . $tournament->public_id)) !!}
                         </div>
+
+                        {{-- Lucky Loser --}}
+                        @if ($tournament->children->where('type', 'lucky_loser')->first())
+                            @php
+                                $lucky = $tournament->children->where('type', 'lucky_loser')->first();
+                            @endphp
+
+                            <div class="text-yellow-400 text-xl mt-6 mb-2">
+                                Lucky-Loser
+                            </div>
+
+                            <div class="bg-white p-3 rounded">
+                                {!! QrCode::size(260)->generate(url('/follow/' . $lucky->id)) !!}
+                            </div>
+                        @endif
 
                     </div>
                 @endforeach
@@ -50,7 +66,7 @@
                 @foreach ($tournaments as $t)
                     {
                         type: "tournament",
-                        url: "/tv/{{ $t->id }}"
+                        url: "/tv/{{ $t->public_id }}"
                     },
                 @endforeach
 
