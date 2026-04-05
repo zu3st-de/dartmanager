@@ -1,42 +1,49 @@
 @extends('layouts.tv')
 
 @section('content')
-    <div id="tvStage" class="w-screen h-screen relative"></div>
+    {{-- Template für Overview --}}
+    <div id="overviewTemplate" style="display:none">
 
+        <div class="h-full w-full flex items-center justify-center">
 
-    <!-- Übersicht -->
-
-    <div id="overviewTemplate" class="hidden">
-
-        <div class="flex flex-col items-center justify-center h-screen w-full">
-
-
-            <div class="flex justify-evenly items-center w-full max-w-6xl">
+            <div class="flex justify-center items-start gap-24">
 
                 @foreach ($tournaments as $tournament)
-                    <div class="flex flex-col items-center">
+                    @php
+                        $isLucky = $tournament->parent_id !== null;
+                        $lucky = $tournaments->firstWhere('parent_id', $tournament->id);
+                        $size = $lucky ? 320 : 444;
+                    @endphp
 
-                        <div class="text-3xl mb-6">
-                            {{ $tournament->name }}
-                        </div>
+                    @if ($isLucky)
+                        @continue
+                    @endif
 
-                        {{-- Hauptturnier --}}
-                        <div class="bg-white p-4 rounded">
-                            {!! QrCode::size(444)->generate(url('/follow/' . $tournament->public_id)) !!}
-                        </div>
+                    <div class="flex flex-col items-center gap-8">
 
-                        {{-- Lucky Loser --}}
-                        @if ($tournament->children->where('type', 'lucky_loser')->first())
-                            @php
-                                $lucky = $tournament->children->where('type', 'lucky_loser')->first();
-                            @endphp
-
-                            <div class="text-yellow-400 text-xl mt-6 mb-2">
-                                Lucky-Loser
+                        <div class="text-center">
+                            <div class="text-3xl font-semibold mb-6">
+                                {{ $tournament->name }}
                             </div>
 
-                            <div class="bg-white p-3 rounded">
-                                {!! QrCode::size(260)->generate(url('/follow/' . $lucky->id)) !!}
+                            <div class="flex justify-center">
+                                <div class="bg-white p-4 rounded-lg">
+                                    {!! QrCode::size($size)->generate(url('/follow/' . $tournament->public_id)) !!}
+                                </div>
+                            </div>
+                        </div>
+
+                        @if ($lucky)
+                            <div class="text-center">
+                                <div class="text-yellow-400 text-xl mb-4">
+                                    Lucky-Loser
+                                </div>
+
+                                <div class="flex justify-center">
+                                    <div class="bg-white p-4 rounded-lg">
+                                        {!! QrCode::size($size)->generate(url('/follow/' . $lucky->public_id)) !!}
+                                    </div>
+                                </div>
                             </div>
                         @endif
 
@@ -48,11 +55,15 @@
         </div>
 
     </div>
+
+    {{-- Stage Container --}}
+    <div id="tvStage"></div>
 @endsection
 
 @push('scripts')
     <script>
         const rotationTime = {{ \App\Models\TvTournament::value('rotation_time') ?? 20 }};
+
         document.addEventListener("DOMContentLoaded", function() {
 
             const stage = document.getElementById("tvStage")
@@ -74,7 +85,6 @@
 
             let index = 0
 
-
             function showPage() {
 
                 const page = pages[index]
@@ -92,7 +102,7 @@
 
                         stage.innerHTML =
                             `<iframe src="${page.url}" 
-                    style="width:100%;height:100vh;border:none"></iframe>`
+                style="width:100%;height:100vh;border:none"></iframe>`
 
                     }
 
@@ -101,7 +111,6 @@
                 }, 500)
 
             }
-
 
             function next() {
 
@@ -114,7 +123,6 @@
                 showPage()
 
             }
-
 
             showPage()
 

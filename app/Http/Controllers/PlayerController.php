@@ -24,6 +24,7 @@ class PlayerController extends Controller
 
         return back()->with('success', 'Spielername aktualisiert.');
     }
+
     public function destroy(Player $player)
     {
         $tournament = $player->tournament;
@@ -39,35 +40,5 @@ class PlayerController extends Controller
         $player->delete();
 
         return back()->with('success', 'Spieler gelöscht.');
-    }
-    public function reset(Request $request, Tournament $tournament)
-    {
-        // Nur Owner
-        if ($tournament->user_id !== auth()->id()) {
-            abort(403);
-        }
-
-        // Name muss exakt passen
-        $request->validate([
-            'confirm_name' => ['required', 'in:' . $tournament->name],
-        ]);
-
-        DB::transaction(function () use ($tournament) {
-
-            // Alle Spiele löschen
-            $tournament->games()->delete();
-
-            // Optional: Gruppen löschen
-            $tournament->groups()->delete();
-
-            // Status zurücksetzen
-            $tournament->update([
-                'status' => 'draft'
-            ]);
-        });
-
-        return redirect()
-            ->route('tournaments.show', $tournament)
-            ->with('success', 'Turnier wurde zurückgesetzt.');
     }
 }

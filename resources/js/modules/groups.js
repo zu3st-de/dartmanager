@@ -71,8 +71,14 @@ export function initGroups() {
 
         if (!data || !data.success) return;
 
-        reloadGame(data.game_id);
-        reloadGroup(data.group_id);
+        // Full Reload (Reset etc.)
+        if (data.fullReload) {
+            location.reload();
+            return;
+        }
+
+        if (data.game_id) reloadGame(data.game_id);
+        if (data.group_id) reloadGroup(data.group_id);
 
         // 👉 prüfen ob alles fertig
         setTimeout(() => {
@@ -266,20 +272,28 @@ window.reloadGroup = function (groupId) {
 */
 window.reloadGame = function (gameId) {
 
-    fetch(`/games/${gameId}/html`)
+    if (!gameId) {
+        console.warn('reloadGame: gameId fehlt!');
+        return;
+    }
+
+    fetch(`/games/${gameId}/reload`)
         .then(res => res.text())
         .then(html => {
 
             const el = document.querySelector(`[data-game="${gameId}"]`);
 
-            if (el) {
-                el.outerHTML = html;
-            }
+            if (!el) return;
+
+            el.outerHTML = html;
 
             if (window.initGroups) {
                 window.initGroups();
             }
 
+        })
+        .catch(err => {
+            console.error('reloadGame ERROR:', err);
         });
 };
 

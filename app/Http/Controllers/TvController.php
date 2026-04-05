@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tournament;
 use App\Models\TvTournament;
+use App\Services\Group\GroupTableCalculator;
 use Illuminate\Http\Request;
 
 /**
@@ -18,69 +19,81 @@ use Illuminate\Http\Request;
  * - Rotation (Anzeige mehrerer Turniere)
  * - Darstellung eines einzelnen Turniers im TV-Modus
  *
- * 🔒 WICHTIG:
- * Alle Methoden sind so abgesichert, dass ein User
- * NUR seine eigenen Turniere sehen/verwalten kann.
+ * 🔒 SECURITY:
+ * Benutzer dürfen nur ihre eigenen Turniere sehen
  *
- * ================================================================
  */
 
 class TvController extends Controller
 {
+
     /*
     |--------------------------------------------------------------------------
     | 📺 TV-Verwaltung anzeigen
     |--------------------------------------------------------------------------
     |
-    | Zeigt eine Liste aller Turniere des aktuellen Users,
-    | die für den TV-Modus ausgewählt werden können.
-    |
-    | 🔒 SECURITY:
-    | Es werden NUR Turniere des eingeloggten Users geladen.
+    | Zeigt alle Turniere des Users zur Auswahl für TV
     |
     */
+
     public function manage()
     {
+        // Alle Turniere des Users
         $tournaments = auth()->user()
             ->tournaments()
             ->orderBy('name')
             ->get();
 
-        // Bereits ausgewählte Turniere (TV-Programm)
-        $selected = TvTournament::pluck('tournament_id')->toArray();
-        $rotationTime = TvTournament::orderBy('position')->value('rotation_time') ?? 20;
-        return view('admin.tv', compact('tournaments', 'selected', 'rotationTime'));
+
+        // Bereits ausgewählte Turniere
+        $selected = TvTournament::whereNotNull('tournament_id')
+            ->pluck('tournament_id')
+            ->toArray();
+
+
+        // Rotationszeit
+        $rotationTime = TvTournament::orderBy('position')
+            ->value('rotation_time') ?? 20;
+
+
+        return view('admin.tv', compact(
+            'tournaments',
+            'selected',
+            'rotationTime'
+        ));
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | 💾 TV-Auswahl speichern
+    | 💾 TV Auswahl speichern
     |--------------------------------------------------------------------------
-    |
-    | Speichert die Reihenfolge der Turniere für den TV-Modus.
-    |
-    | 🔒 SECURITY:
-    | - Es werden nur Turniere gespeichert, die dem User gehören
-    | - Fremde IDs werden ignoriert
-    |
     */
+
     public function save(Request $request)
     {
+        // Nur eigene Turniere erlauben
         $userTournamentIds = auth()->user()
             ->tournaments()
             ->pluck('id')
             ->toArray();
 
+
+        // Rotationszeit
         $rotationTime = (int) $request->rotation_time ?: 20;
 
+
+        // Alte Einträge löschen
         TvTournament::truncate();
+
 
         $position = 1;
         $created = false;
 
+
         foreach ($request->tournaments ?? [] as $id) {
 
+            // Sicherheit: nur eigene Turniere
             if (!in_array($id, $userTournamentIds)) {
                 continue;
             }
@@ -95,7 +108,13 @@ class TvController extends Controller
             $created = true;
         }
 
-        // 🔥 WICHTIG: Fallback wenn nichts ausgewählt wurde
+
+        /*
+        |--------------------------------------------------------------------------
+        | Fallback wenn nichts ausgewählt
+        |--------------------------------------------------------------------------
+        */
+
         if (!$created) {
             TvTournament::create([
                 'tournament_id' => null,
@@ -104,22 +123,17 @@ class TvController extends Controller
             ]);
         }
 
+
         return back()->with('success', 'TV Programm gespeichert');
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | 🔄 TV-Rotation
+    | 🔄 TV Rotation
     |--------------------------------------------------------------------------
-    |
-    | Lädt die ausgewählten Turniere in definierter Reihenfolge.
-    |
-    | 🔒 SECURITY:
-    | - Nur Turniere des aktuellen Users werden angezeigt
-    | - Schutz gegen manipulierte Datenbankeinträge
-    |
     */
+
     public function rotation()
     {
         $tournaments = TvTournament::with('tournament')
@@ -127,9 +141,13 @@ class TvController extends Controller
             ->get()
             ->pluck('tournament')
             ->filter(function ($tournament) {
-                return $tournament && $tournament->user_id === auth()->id();
+
+                // Nur eigene Turniere anzeigen
+                return $tournament
+                    && $tournament->user_id === auth()->id();
             })
             ->values();
+
 
         return view('tv.rotation', compact('tournaments'));
     }
@@ -137,32 +155,29 @@ class TvController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | 📺 Einzelnes Turnier im TV-Modus anzeigen
+    | 📺 Einzelnes Turnier anzeigen
     |--------------------------------------------------------------------------
-    |
-    | Zeigt ein Turnier abhängig vom Status:
-    |
-    | - draft           → einfache Übersicht
-    | - group_running   → Gruppen + Tabelle
-    | - ko_running      → KO-Baum
-    | - finished        → finaler Stand
-    |
-    | 🔒 SECURITY:
-    | Zugriff nur für den Besitzer des Turniers
-    |
     */
+
     public function show(Tournament $tournament)
     {
-        // 🔒 OWNER CHECK (KRITISCH!)
+        /*
+        |--------------------------------------------------------------------------
+        | 🔒 Sicherheitsprüfung
+        |--------------------------------------------------------------------------
+        */
+
         if ($tournament->user_id !== auth()->id()) {
             abort(403);
         }
 
+
         /*
         |--------------------------------------------------------------------------
-        | 🔄 Relationen laden (Performance)
+        | 🔄 Relationen laden
         |--------------------------------------------------------------------------
         */
+
         $tournament->load([
             'groups.players',
             'groups.games.player1',
@@ -178,6 +193,7 @@ class TvController extends Controller
         | 📝 Draft Phase
         |--------------------------------------------------------------------------
         */
+
         if ($tournament->status === 'draft') {
             return view('tv.draft', compact('tournament'));
         }
@@ -188,6 +204,7 @@ class TvController extends Controller
         | 👥 Gruppenphase
         |--------------------------------------------------------------------------
         */
+
         if ($tournament->status === 'group_running') {
 
             $groupData = [];
@@ -195,14 +212,16 @@ class TvController extends Controller
             foreach ($tournament->groups as $group) {
 
                 // Tabelle berechnen
-                $table = app(\App\Services\GroupTableCalculator::class)
+                $table = app(GroupTableCalculator::class)
                     ->calculate($group);
 
-                // Letztes abgeschlossenes Spiel
+
+                // Letztes Spiel
                 $lastGame = $group->games
                     ->whereNotNull('winner_id')
                     ->sortByDesc('updated_at')
                     ->first();
+
 
                 // Aktuelles Spiel
                 $currentGame = $group->games
@@ -210,12 +229,14 @@ class TvController extends Controller
                     ->sortBy('id')
                     ->first();
 
+
                 // Nächstes Spiel
                 $nextGame = $group->games
                     ->whereNull('winner_id')
                     ->sortBy('id')
                     ->skip(1)
                     ->first();
+
 
                 $groupData[] = [
                     'group' => $group,
@@ -226,7 +247,10 @@ class TvController extends Controller
                 ];
             }
 
-            return view('tv.show', compact('tournament', 'groupData'));
+            return view('tv.show', compact(
+                'tournament',
+                'groupData'
+            ));
         }
 
 
@@ -235,6 +259,7 @@ class TvController extends Controller
         | 🏆 KO Phase
         |--------------------------------------------------------------------------
         */
+
         if (in_array($tournament->status, ['ko_running', 'finished'])) {
 
             $rounds = $tournament->games
@@ -245,7 +270,10 @@ class TvController extends Controller
                 ])
                 ->groupBy('round');
 
-            return view('tv.bracket', compact('tournament', 'rounds'));
+            return view('tv.bracket', compact(
+                'tournament',
+                'rounds'
+            ));
         }
 
 
@@ -254,6 +282,7 @@ class TvController extends Controller
         | ❌ Fallback
         |--------------------------------------------------------------------------
         */
+
         abort(404);
     }
 }

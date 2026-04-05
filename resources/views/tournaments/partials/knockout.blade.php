@@ -358,7 +358,7 @@
                         @endphp
 
                         <select name="best_of"
-                            onchange="updateBestOf(this, {{ $tournament->id }}, {{ $round }})""
+                            onchange="updateBestOf(this, {{ $tournament->id }}, {{ $round }})"
                             class="mt-1 w-20 text-xs font-semibold
                    bg-gray-800 text-amber-400
                    border border-gray-700

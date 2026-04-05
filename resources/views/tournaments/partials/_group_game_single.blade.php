@@ -18,8 +18,8 @@
                 ✅
             </button>
 
-            <form id="game-form-{{ $game->id }}" method="POST" action="{{ route('games.updateScore', $game) }}"
-                data-url="{{ route('games.updateScore', $game) }}" data-bestof="{{ $game->best_of }}"
+            <form id="game-form-{{ $game->id }}" method="POST" action="{{ route('games.score', $game) }}"
+                data-url="{{ route('games.score', $game) }}" data-bestof="{{ $game->best_of }}"
                 data-group="{{ $game->group_id }}" data-game="{{ $game->id }}"
                 class="score-form group-score-form simulate-group-form">
 
@@ -68,15 +68,21 @@
         ============================================================ --}}
         @else
             {{-- 🗑 RESET BUTTON (gleich positioniert wie ✅) --}}
-            <button type="submit" form="reset-form-{{ $game->id }}"
-                class="absolute top-2 right-2 text-red-500 hover:text-red-400 text-sm">
-                🗑
-            </button>
+            @php
+                $canReset = $game->canBeReset();
+            @endphp
 
-            <form id="reset-form-{{ $game->id }}" method="POST" action="{{ route('games.reset', $game) }}"
-                class="hidden">
-                @csrf
-            </form>
+            @if ($canReset)
+                <button type="submit" form="reset-form-{{ $game->id }}"
+                    class="absolute top-2 right-2 text-red-500 hover:text-red-400 text-sm">
+                    🗑
+                </button>
+
+                <form id="reset-form-{{ $game->id }}" method="POST" action="{{ route('games.reset', $game) }}"
+                    class="hidden">
+                    @csrf
+                </form>
+            @endif
 
             @php
                 $p1Winner = (int) $game->winner_id === (int) $game->player1_id;

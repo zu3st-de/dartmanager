@@ -89,7 +89,7 @@ php artisan serve
 
 * `GroupGenerator` → erstellt Gruppen
 * `KnockoutGenerator` → erstellt KO-Baum
-* `TournamentEngine` → verarbeitet Spielverläufe
+* `KnockoutAdvancer` → verarbeitet Spielverläufe
 
 ### Models
 

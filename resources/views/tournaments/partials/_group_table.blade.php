@@ -13,7 +13,7 @@
     | Diese Daten werden bei jedem AJAX-Reload neu berechnet.
     |
     */
-    $table = app(\App\Services\GroupTableCalculator::class)->calculate($group);
+    $table = app(\App\Services\Group\GroupTableCalculator::class)->calculate($group);
 @endphp
 
 <table class="w-full text-xs text-gray-300 border border-gray-700 rounded-lg overflow-hidden">

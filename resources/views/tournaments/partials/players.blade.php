@@ -111,7 +111,7 @@
                     Mehrere Spieler einfügen (eine Zeile pro Spieler)
                 </label>
 
-                <form method="POST" action="{{ route('tournaments.bulkPlayers', $tournament) }}">
+                <form method="POST" action="{{ route('tournaments.players.bulk', $tournament) }}">
                     @csrf
 
                     {{-- Mehrzeiliges Textfeld für Liste --}}

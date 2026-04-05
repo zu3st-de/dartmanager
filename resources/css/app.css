@@ -133,3 +133,11 @@ input[type="number"] {
 
     min-width: 200px;
 }
+
+.game-wrapper {
+    display: contents;
+}
+
+.game-wrapper {
+    transition: opacity .1s ease;
+}

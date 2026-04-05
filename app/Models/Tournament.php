@@ -25,7 +25,14 @@ class Tournament extends Model
         'public_id',
     ];
 
-
+    public function getRouteKeyName()
+    {
+        return 'public_id';
+    }
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
     protected static function booted()
     {
         static::creating(function ($model) {

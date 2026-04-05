@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Knockout;
 
 use App\Models\Tournament;
 use App\Models\Game;
@@ -19,7 +19,7 @@ use App\Models\Game;
  *
  * WICHTIG:
  * - Diese Klasse erstellt NUR die Struktur
- * - Spielausgänge werden durch TournamentEngine verarbeitet
+ * - Spielausgänge werden durch KnockoutAdvancer verarbeitet
  *
  * Typischer Ablauf:
  * 1. generatePlaceholderBracket()

@@ -96,5 +96,6 @@
 
 </x-app-layout>
 <script>
+    window.tournamentId = {{ $tournament->id }};
     window.tournamentStatus = "{{ $tournament->status }}";
 </script>

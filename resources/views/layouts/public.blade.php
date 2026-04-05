@@ -8,8 +8,7 @@
 
     <title>{{ $tournament->name ?? 'Dart Turnier' }}</title>
 
-    <!-- Tailwind -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css'])
 
     <!-- Bootstrap (optional) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">

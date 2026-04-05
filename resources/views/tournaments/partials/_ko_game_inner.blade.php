@@ -3,8 +3,8 @@
 
 
     @if (!$game->winner_id && $tournament->status === 'ko_running')
-        <form method="POST" class="simulate-ko-form score-form" data-url="{{ route('games.updateScore', $game) }}"
-            data-game-id="{{ $game->id }} data-round="{{ $game->round }}"">
+        <form method="POST" class="simulate-ko-form score-form" data-url="{{ route('games.score', $game) }}"
+            data-game-id="{{ $game->id }}" data-round="{{ $game->round }}">
 
             @csrf
 
@@ -28,17 +28,23 @@
 
         </form>
     @else
-        <div class="flex justify-end mb-2">
-            <form method="POST" class="reset-form" data-url="{{ route('games.reset', $game) }}"
-                data-game-id="{{ $game->id }}">
+        @php
+            $canReset = $game->canBeReset();
+        @endphp
 
-                @csrf
+        @if ($canReset)
+            <div class="flex justify-end mb-2">
+                <form method="POST" class="reset-form" data-url="{{ route('games.reset', $game) }}"
+                    data-game-id="{{ $game->id }}">
 
-                <button type="button" class="text-red-500 hover:text-red-400 text-xs">
-                    🗑
-                </button>
-            </form>
-        </div>
+                    @csrf
+
+                    <button type="button" class="text-red-500 hover:text-red-400 text-xs">
+                        🗑
+                    </button>
+                </form>
+            </div>
+        @endif
 
         @php
             $p1Winner = (int) $game->winner_id === (int) $game->player1_id;

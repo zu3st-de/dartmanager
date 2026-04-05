@@ -129,4 +129,26 @@ class Game extends Model
             ]);
         }
     }
+    /*
+    |--------------------------------------------------------------------------
+    | Prüfen ob Spiel gelöscht werden darf
+    |--------------------------------------------------------------------------
+    */
+
+    public function canBeReset(): bool
+    {
+        $status = $this->tournament->status;
+
+        // Gruppenspiele nur in Gruppenphase
+        if ($this->group_id && $status === 'group_running') {
+            return true;
+        }
+
+        // KO Spiele nur in KO Phase
+        if (!$this->group_id && $status === 'ko_running') {
+            return true;
+        }
+
+        return false;
+    }
 }

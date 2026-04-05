@@ -189,58 +189,60 @@ function runAutoSim() {
 */
 function simulateGroup() {
 
-    const groups = document.querySelectorAll('[data-group]');
-    if (!groups.length) return false;
+    const forms = document.querySelectorAll('.simulate-group-form');
+    if (!forms.length) return false;
 
-    // 👉 merken welche Gruppe zuletzt dran war
+    // Gruppen sammeln
+    const groups = {};
+
+    forms.forEach(form => {
+
+        const groupId = form.dataset.group;
+
+        if (!groups[groupId]) {
+            groups[groupId] = [];
+        }
+
+        const inputs = form.querySelectorAll('input[type="number"]');
+
+        // nur offene Spiele
+        if (inputs[0].value === '' && inputs[1].value === '') {
+            groups[groupId].push(form);
+        }
+
+    });
+
+    const groupIds = Object.keys(groups).filter(id => groups[id].length);
+
+    if (!groupIds.length) return false;
+
+    // Round robin Gruppe
     let groupIndex = parseInt(localStorage.getItem('autosim_group_index') || 0);
 
-    const groupCount = groups.length;
+    if (groupIndex >= groupIds.length) groupIndex = 0;
 
-    for (let i = 0; i < groupCount; i++) {
+    const groupId = groupIds[groupIndex];
+    const form = groups[groupId][0]; // immer erstes Spiel
 
-        // 🔁 nächste Gruppe (round robin)
-        const index = (groupIndex + i) % groupCount;
-        const group = groups[index];
+    const inputs = form.querySelectorAll('input[type="number"]');
+    const btn = document.querySelector(`.save-btn[form="${form.id}"]`);
 
-        const forms = group.querySelectorAll('.simulate-group-form');
+    const bestOf = parseInt(form.dataset.bestof || 3);
+    const needed = Math.ceil(bestOf / 2);
 
-        for (const form of forms) {
-
-            const btn = document.querySelector(
-                `.save-btn[form="${form.id}"]`
-            );
-            if (!btn) continue;
-
-            const inputs = form.querySelectorAll('input[type="number"]');
-            if (inputs.length < 2) continue;
-
-            // schon gespielt → skip
-            if (inputs[0].value !== '' || inputs[1].value !== '') continue;
-
-            const bestOf = parseInt(form.dataset.bestof || 3);
-            const needed = Math.ceil(bestOf / 2);
-
-            if (Math.random() < 0.5) {
-                inputs[0].value = needed;
-                inputs[1].value = Math.floor(Math.random() * needed);
-            } else {
-                inputs[0].value = Math.floor(Math.random() * needed);
-                inputs[1].value = needed;
-            }
-
-            // 👉 nächste Gruppe merken
-            localStorage.setItem('autosim_group_index', index + 1);
-
-            btn.click();
-
-            return true;
-        }
+    if (Math.random() < 0.5) {
+        inputs[0].value = needed;
+        inputs[1].value = Math.floor(Math.random() * needed);
+    } else {
+        inputs[0].value = Math.floor(Math.random() * needed);
+        inputs[1].value = needed;
     }
 
-    // keine offenen Spiele mehr
-    localStorage.removeItem('autosim_group_index');
-    return false;
+    localStorage.setItem('autosim_group_index', groupIndex + 1);
+
+    btn.click();
+
+    return true;
 }
 
 
@@ -317,10 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log("AutoSim bereit");
 
-    // Auto-Resume nach Reload
-    if (localStorage.getItem('autosim_running') === '1') {
-        startAutoSim();
-    }
 });
 
 

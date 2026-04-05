@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Group;
 
 use App\Models\Tournament;
 use App\Models\Game;

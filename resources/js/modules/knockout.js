@@ -1,35 +1,12 @@
-/**
-
-* ---
-* 🧠 KO PHASE JAVASCRIPT (STABIL & EINFACH)
-* ---
-*
-* Prinzip:
-* 👉 Nach jeder Aktion werden ALLE sichtbaren Spiele neu geladen
-*
-* Vorteile:
-* * keine Speziallogik für Finale / Platz 3
-* * keine Abhängigkeiten (next / related)
-* * keine Inkonsistenzen
-* * super stabil
-*
-* Nachteil:
-* * etwas mehr Requests (aber völlig ok für kleine Brackets)
-*
-* ---
-
-*/
+let knockoutInitialized = false;
+let reloadLock = false;
 
 export function initKnockout() {
 
-    /**
-     * ------------------------------------------------------------------------
-     * 🔥 POST REQUEST (Save / Reset)
-     * ------------------------------------------------------------------------
-     *
-     * Sendet das Formular an Laravel (Score oder Reset)
-     *
-     */
+    if (knockoutInitialized) return;
+    knockoutInitialized = true;
+
+
     async function post(form) {
 
         const response = await fetch(form.dataset.url, {
@@ -41,113 +18,91 @@ export function initKnockout() {
             body: new FormData(form)
         });
 
-        return response.ok;
+        return response.json();
     }
 
+    const reloadingGames = new Set();
 
-    /**
-     * ------------------------------------------------------------------------
-     * 🔄 EIN SPIEL NEU LADEN
-     * ------------------------------------------------------------------------
-     *
-     * Holt HTML vom Server und ersetzt den Inhalt im DOM
-     *
-     */
-    async function reloadGame(gameId) {
+    window.reloadGame = async function (gameId) {
 
-        const response = await fetch(`/games/${gameId}/html`);
-        if (!response.ok) return;
+        try {
 
-        const html = await response.text();
+            const el = document.querySelector(`[data-game-id="${gameId}"]`);
+            if (!el) return;
 
-        const current = document.querySelector(
-            `[data-game-id="${gameId}"]`
-        );
+            const container = el.closest('.absolute');
 
-        if (current) {
-            current.innerHTML = html;
-        }
-    }
+            const res = await fetch(`/games/${gameId}/html`);
+            const html = await res.text();
 
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
 
-    /**
-     * ------------------------------------------------------------------------
-     * 🔥 ALLE SPIELE NEU LADEN (KEY FEATURE)
-     * ------------------------------------------------------------------------
-     *
-     * Statt komplizierter Logik (next / related)
-     * → einfach alles neu laden
-     *
-     */
-    async function reloadAllGames() {
+            const newEl = temp.firstElementChild;
 
-        const games = document.querySelectorAll('[data-game-id]');
-
-        const promises = [];
-
-        for (const gameEl of games) {
-
-            const id = gameEl.dataset.gameId;
-
-            if (id) {
-                promises.push(reloadGame(id));
+            if (container && newEl) {
+                container.innerHTML = '';
+                container.appendChild(newEl);
             }
+
+        } catch (err) {
+            console.error('reloadGame error:', err);
         }
-
-        await Promise.all(promises);
-    }
+    };
 
 
-    /**
-     * ------------------------------------------------------------------------
-     * 🚀 ZENTRALE SUBMIT-LOGIK
-     * ------------------------------------------------------------------------
-     *
-     * Wird für:
-     * - Save (Score)
-     * - Reset
-     *
-     */
     async function handleSubmit(form) {
 
-        const gameId = form.dataset.gameId;
+        if (reloadLock) return;
+        reloadLock = true;
 
-        // 🔍 Validierung (nur bei Score)
-        if (form.classList.contains('score-form')) {
+        let response = null;   // 🔥 FIX
 
-            const inputs = form.querySelectorAll('.score-input');
+        try {
 
-            if (inputs.length === 2) {
+            if (form.classList.contains('score-form')) {
 
-                const val1 = inputs[0].value;
-                const val2 = inputs[1].value;
+                const inputs = form.querySelectorAll('.score-input');
 
-                // beide Felder müssen gesetzt sein
-                if (!val1 || !val2) return;
+                if (inputs.length === 2) {
+
+                    const val1 = inputs[0].value;
+                    const val2 = inputs[1].value;
+
+                    if (!val1 || !val2) {
+                        reloadLock = false;
+                        return;
+                    }
+                }
             }
+
+            response = await post(form);
+
+            // 🔥 FULL RELOAD zuerst prüfen
+            if (response?.fullReload) {
+                window.location.reload();
+                return;
+            }
+
+            if (!response?.reload) return;
+
+            // doppelte IDs entfernen
+            const uniqueIds = [...new Set(response.reload)];
+
+            for (const id of uniqueIds) {
+                await window.reloadGame(id);
+            }
+
+        } finally {
+            reloadLock = false;
         }
-
-        const success = await post(form);
-        if (!success) return;
-
-        // 🔥 HIER passiert die Magie
-        await reloadAllGames();
     }
 
 
-    /**
-     * ------------------------------------------------------------------------
-     * 🖱 CLICK HANDLER (Save + Reset)
-     * ------------------------------------------------------------------------
-     *
-     * Reagiert auf:
-     * - Save Button
-     * - Reset Button
-     *
-     */
     document.addEventListener('click', async function (e) {
 
         const form = e.target.closest('.score-form, .reset-form');
+
         if (!form) return;
 
         e.preventDefault();
@@ -156,15 +111,6 @@ export function initKnockout() {
     });
 
 
-    /**
-     * ------------------------------------------------------------------------
-     * ⌨️ ENTER HANDLER (nur Score)
-     * ------------------------------------------------------------------------
-     *
-     * Enter triggert Speichern
-     * → aber kontrolliert (kein nativer Submit)
-     *
-     */
     document.addEventListener('keydown', async function (e) {
 
         if (e.key !== 'Enter') return;
@@ -176,23 +122,13 @@ export function initKnockout() {
         e.preventDefault();
 
         const form = input.closest('.score-form');
+
         if (!form) return;
 
         await handleSubmit(form);
     });
 
 
-    /**
-     * ------------------------------------------------------------------------
-     * 🚫 NATIVEN FORM SUBMIT BLOCKIEREN
-     * ------------------------------------------------------------------------
-     *
-     * Verhindert:
-     * - Browser Submit
-     * - Enter Submit
-     * - Mobile Auto Submit
-     *
-     */
     document.addEventListener('submit', function (e) {
 
         if (
@@ -202,6 +138,5 @@ export function initKnockout() {
             e.preventDefault();
         }
     });
-
 
 }

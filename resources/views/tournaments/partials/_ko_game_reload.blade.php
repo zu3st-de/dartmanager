@@ -1,9 +1,5 @@
-<div class="game-wrapper" data-game-id="{{ $game->id }}">
-
     @include('tournaments.partials._ko_game_inner', [
         'game' => $game,
         'tournament' => $tournament,
         'maxRound' => $maxRound ?? null,
     ])
-
-</div>

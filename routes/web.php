@@ -1,8 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\TournamentPlayerController;
+use App\Http\Controllers\TournamentGameController;
+use App\Http\Controllers\TournamentAdminController;
+
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\TvController;
 use App\Http\Controllers\PublicController;
@@ -19,9 +24,10 @@ Route::get('/', fn() => view('welcome'));
 
 /*
 |--------------------------------------------------------------------------
-| 🌍 Öffentliche Seiten (kein Login nötig)
+| 🌍 Öffentliche Seiten
 |--------------------------------------------------------------------------
 */
+
 Route::get('/follow/{tournament:public_id}', [PublicController::class, 'follow'])
     ->name('tournament.follow');
 
@@ -29,9 +35,6 @@ Route::get('/follow/{tournament:public_id}/data', [PublicController::class, 'fol
 
 Route::get('/tv/{tournament:public_id}', [TvController::class, 'show'])
     ->name('tv.tournament');
-
-Route::get('/tv/{tournament:public_id}/data', [TvController::class, 'data'])
-    ->name('tv.tournament.data');
 
 Route::get('/tv', [TvController::class, 'rotation']);
 
@@ -41,6 +44,7 @@ Route::get('/tv', [TvController::class, 'rotation']);
 | 🔐 Dashboard
 |--------------------------------------------------------------------------
 */
+
 Route::get('/dashboard', fn() => view('dashboard'))
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
@@ -48,9 +52,10 @@ Route::get('/dashboard', fn() => view('dashboard'))
 
 /*
 |--------------------------------------------------------------------------
-| 🔒 Auth-Bereich (nur eingeloggte User)
+| 🔒 Auth Bereich
 |--------------------------------------------------------------------------
 */
+
 Route::middleware('auth')->group(function () {
 
     /*
@@ -58,24 +63,15 @@ Route::middleware('auth')->group(function () {
     | 👤 Profil
     |--------------------------------------------------------------------------
     */
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    Route::get('/profile', [ProfileController::class, 'edit'])
+        ->name('profile.edit');
 
-    /*
-    |--------------------------------------------------------------------------
-    | 📦 Archiv (WICHTIG: vor show!)
-    |--------------------------------------------------------------------------
-    */
-    Route::get('/tournaments/archive', [TournamentController::class, 'archiveList'])
-        ->name('tournaments.archive');
+    Route::patch('/profile', [ProfileController::class, 'update'])
+        ->name('profile.update');
 
-    Route::post('/tournaments/{tournament}/archive', [TournamentController::class, 'archive'])
-        ->name('tournaments.archive.store');
-
-    Route::post('/tournaments/{tournament}/restore', [TournamentController::class, 'restore'])
-        ->name('tournaments.restore');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])
+        ->name('profile.destroy');
 
 
     /*
@@ -83,6 +79,7 @@ Route::middleware('auth')->group(function () {
     | 🏆 Turniere
     |--------------------------------------------------------------------------
     */
+
     Route::get('/tournaments', [TournamentController::class, 'index'])
         ->name('tournaments.index');
 
@@ -92,33 +89,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/tournaments', [TournamentController::class, 'store'])
         ->name('tournaments.store');
 
-    // ❗ MUSS NACH archive stehen!
     Route::get('/tournaments/{tournament}', [TournamentController::class, 'show'])
         ->name('tournaments.show');
 
 
     /*
     |--------------------------------------------------------------------------
-    | 👥 Spieler im Turnier
+    | ▶️ Turniersteuerung
     |--------------------------------------------------------------------------
     */
-    Route::post('/tournaments/{tournament}/players', [TournamentController::class, 'addPlayer'])
-        ->name('tournaments.players.store');
 
-    Route::post('/tournaments/{tournament}/bulk-players', [TournamentController::class, 'bulkPlayers'])
-        ->name('tournaments.bulkPlayers');
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ▶️ Turnier starten / steuern
-    |--------------------------------------------------------------------------
-    */
     Route::post('/tournaments/{tournament}/start', [TournamentController::class, 'start'])
         ->name('tournaments.start');
-
-    Route::post('/tournaments/{tournament}/draw', [TournamentController::class, 'draw'])
-        ->name('tournaments.draw');
 
     Route::post('/tournaments/{tournament}/start-ko', [TournamentController::class, 'startKo'])
         ->name('tournaments.startKo');
@@ -126,47 +108,75 @@ Route::middleware('auth')->group(function () {
     Route::post('/tournaments/{tournament}/finish-groups', [TournamentController::class, 'finishGroups'])
         ->name('tournaments.finishGroups');
 
+    Route::patch(
+        '/tournaments/{tournament}/round-best-of',
+        [TournamentController::class, 'updateRoundBestOf']
+    )->name('tournaments.updateRoundBestOf');
 
     /*
     |--------------------------------------------------------------------------
-    | ⚙️ Einstellungen (Best-of etc.)
+    | 👥 Spieler
     |--------------------------------------------------------------------------
     */
-    Route::post('/tournaments/{tournament}/group-best-of', [TournamentController::class, 'updateGroupBestOf'])
-        ->name('tournaments.updateGroupBestOf');
 
-    Route::post('/tournaments/{tournament}/round/{round}/bestof', [TournamentController::class, 'updateRoundBestOf'])
-        ->name('round.updateBestOf');
+    Route::post('/tournaments/{tournament}/players', [TournamentPlayerController::class, 'addPlayer'])
+        ->name('tournaments.players.store');
 
-    Route::patch('/tournaments/{tournament}/round/{round}/best-of', [TournamentController::class, 'updateRoundBestOf'])
-        ->name('tournaments.updateRoundBestOf');
+    Route::post('/tournaments/{tournament}/bulk-players', [TournamentPlayerController::class, 'bulkPlayers'])
+        ->name('tournaments.players.bulk');
+
+    Route::post('/tournaments/{tournament}/draw', [TournamentPlayerController::class, 'draw'])
+        ->name('tournaments.draw');
 
 
     /*
     |--------------------------------------------------------------------------
-    | 🔄 Reset / Tools
+    | 🎯 Spiele
     |--------------------------------------------------------------------------
     */
-    Route::post('/tournaments/{tournament}/reset', [TournamentController::class, 'reset'])
+
+    Route::post('/games/{game}/score', [TournamentGameController::class, 'updateScore'])
+        ->name('games.score');
+
+    Route::post('/games/{game}/reset', [TournamentGameController::class, 'resetGame'])
+        ->name('games.reset');
+
+    Route::get('/games/{game}/reload', [TournamentGameController::class, 'reloadGame'])
+        ->name('games.reload');
+    Route::get('/games/{game}/next', [TournamentGameController::class, 'nextGame']);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ⚙️ Admin
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post('/tournaments/{tournament}/reset', [TournamentAdminController::class, 'reset'])
         ->name('tournaments.reset');
 
+    // ✅ FIX: resetKo gehört zum TournamentController
     Route::post('/tournaments/{tournament}/reset-ko', [TournamentController::class, 'resetKo'])
         ->name('tournaments.resetKo');
 
-    Route::post('/tournaments/{tournament}/reopen', [TournamentController::class, 'reopen'])
+    Route::post('/tournaments/{tournament}/reopen', [TournamentAdminController::class, 'reopen'])
         ->name('tournaments.reopen');
 
 
     /*
     |--------------------------------------------------------------------------
-    | 🎯 Spiele (Score / Reset)
+    | 📦 Archiv
     |--------------------------------------------------------------------------
     */
-    Route::post('/games/{game}/score', [TournamentController::class, 'updateScore'])
-        ->name('games.updateScore');
 
-    Route::post('/games/{game}/reset', [TournamentController::class, 'resetGame'])
-        ->name('games.reset');
+    Route::get('/tournaments/archive', [TournamentAdminController::class, 'archiveList'])
+        ->name('tournaments.archive');
+
+    Route::post('/tournaments/{tournament}/archive', [TournamentAdminController::class, 'archive'])
+        ->name('tournaments.archive.store');
+
+    Route::post('/tournaments/{tournament}/restore', [TournamentAdminController::class, 'restore'])
+        ->name('tournaments.restore');
 
 
     /*
@@ -174,6 +184,7 @@ Route::middleware('auth')->group(function () {
     | 👥 Spieler bearbeiten
     |--------------------------------------------------------------------------
     */
+
     Route::patch('/players/{player}', [PlayerController::class, 'update'])
         ->name('players.update');
 
@@ -186,57 +197,53 @@ Route::middleware('auth')->group(function () {
     | 📺 TV Admin
     |--------------------------------------------------------------------------
     */
-    Route::get('/admin/tv', [TvController::class, 'manage']);
-    Route::post('/admin/tv', [TvController::class, 'save']);
 
+    Route::get('/admin/tv', [TvController::class, 'manage'])
+        ->name('tv.manage');
 
-    /*
-    |--------------------------------------------------------------------------
-    | 🔥 KO GAME HTML (Live Update Partial)
-    |--------------------------------------------------------------------------
-    */
-    Route::get('/games/{game}/html', function (App\Models\Game $game) {
-
-        return view('tournaments.partials._ko_game_inner', [
-            'game' => $game->fresh(['player1', 'player2']),
-            'tournament' => $game->tournament,
-            'maxRound' => $game->tournament->games()->max('round'),
-        ]);
-    });
+    Route::post('/admin/tv', [TvController::class, 'save'])
+        ->name('tv.save');
 });
 
 
 /*
 |--------------------------------------------------------------------------
-| 🔄 Nächstes Spiel (KO)
+| 🔄 Game Reload (AJAX)
 |--------------------------------------------------------------------------
 */
-Route::get('/games/{game}/next', function (App\Models\Game $game) {
 
-    if ($game->group_id !== null || $game->round === null) {
-        return response()->json(['next_game_id' => null]);
+Route::get('/games/{game}/html', function (\App\Models\Game $game) {
+
+    $game->load('player1', 'player2');
+
+    if ($game->group_id) {
+        return view('tournaments.partials._group_game_single', [
+            'game' => $game,
+            'tournament' => $game->tournament
+        ]);
     }
 
-    $nextGame = App\Models\Game::where('tournament_id', $game->tournament_id)
-        ->where('round', $game->round + 1)
-        ->where('position', (int) ceil($game->position / 2))
-        ->first();
-
-    return response()->json([
-        'next_game_id' => $nextGame?->id
+    return view('tournaments.partials._ko_game_inner', [
+        'game' => $game,
+        'tournament' => $game->tournament
     ]);
 });
 
 
 /*
 |--------------------------------------------------------------------------
-| 🧩 Gruppen (AJAX Partial Views)
+| 🧩 Gruppen AJAX
 |--------------------------------------------------------------------------
 */
+
 Route::get('/groups/{group}/table', function (\App\Models\Group $group) {
 
     return view('tournaments.partials._group_table', [
-        'group' => $group->load('players', 'games.player1', 'games.player2'),
+        'group' => $group->load(
+            'players',
+            'games.player1',
+            'games.player2'
+        ),
         'tournament' => $group->tournament
     ]);
 });
@@ -257,7 +264,25 @@ Route::get('/groups/{group}/games', function (\App\Models\Group $group) {
 
 /*
 |--------------------------------------------------------------------------
-| 🔗 Auth Routes (Laravel Default)
+| 🧩 KO AJAX
 |--------------------------------------------------------------------------
 */
+
+Route::get('/tournaments/{tournament}/bracket', function (\App\Models\Tournament $tournament) {
+
+    return view('tournaments.partials.knockout', [
+        'tournament' => $tournament->load(
+            'games.player1',
+            'games.player2'
+        )
+    ]);
+})->name('tournaments.bracket');
+
+
+/*
+|--------------------------------------------------------------------------
+| 🔐 Auth
+|--------------------------------------------------------------------------
+*/
+
 require __DIR__ . '/auth.php';

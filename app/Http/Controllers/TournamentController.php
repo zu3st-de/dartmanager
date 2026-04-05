@@ -9,10 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
-use App\Services\KnockoutGenerator;
-use App\Services\TournamentEngine;
-use App\Services\GroupGenerator;
-use App\Services\GroupTableCalculator;
+use App\Services\Group\GroupGenerator;
+use App\Services\Group\GroupTableCalculator;
+use App\Services\Knockout\KnockoutGenerator;
+use App\Services\Knockout\KnockoutAdvancer;
 
 /**
  * ================================================================
@@ -36,7 +36,7 @@ use App\Services\GroupTableCalculator;
  * GroupGenerator        → Gruppen erstellen
  * GroupTableCalculator  → Gruppentabelle berechnen
  * KnockoutGenerator     → KO Baum erzeugen / befüllen
- * TournamentEngine      → Gewinner in nächste Runde setzen
+ * KnockoutAdvancer      → Gewinner in nächste Runde setzen
  *
  * ================================================================
  */
@@ -1185,14 +1185,14 @@ class TournamentController extends Controller
                     // Spieler 1 gewinnt gegen BYE
                     if ($game->player1_id && !$game->player2_id) {
 
-                        app(TournamentEngine::class)
+                        app(KnockoutAdvancer::class)
                             ->handleWin($game, $game->player1_id);
                     }
 
                     // Spieler 2 gewinnt gegen BYE
                     if ($game->player2_id && !$game->player1_id) {
 
-                        app(TournamentEngine::class)
+                        app(KnockoutAdvancer::class)
                             ->handleWin($game, $game->player2_id);
                     }
                 }
@@ -1218,6 +1218,12 @@ class TournamentController extends Controller
     | Zur Turnierseite zurückkehren
     |--------------------------------------------------------------------------
     */
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'fullReload' => true
+            ]);
+        }
 
         return redirect()
             ->route('tournaments.show', $tournament)
@@ -1374,7 +1380,7 @@ class TournamentController extends Controller
     | KO-Engine ausführen
     |--------------------------------------------------------------------------
     |
-    | Sobald ein Gewinner feststeht übernimmt die TournamentEngine:
+    | Sobald ein Gewinner feststeht übernimmt die KnockoutAdvancer:
     |
     | - winner_id setzen
     | - nächsten Gegner bestimmen
@@ -1385,7 +1391,7 @@ class TournamentController extends Controller
 
         if ($winnerId) {
 
-            app(TournamentEngine::class)
+            app(KnockoutAdvancer::class)
                 ->handleWin($game, $winnerId);
         }
 
@@ -1984,64 +1990,35 @@ class TournamentController extends Controller
 |--------------------------------------------------------------------------
 */
 
-    /*
-|--------------------------------------------------------------------------
-| Komplettes Turnier zurücksetzen
-|--------------------------------------------------------------------------
-|
-| Setzt ein Turnier vollständig auf den Ausgangszustand zurück.
-|
-| Das bedeutet:
-|
-| - Alle Spiele werden gelöscht
-| - Alle Gruppen werden gelöscht
-| - Der Turnierstatus wird wieder auf "draft" gesetzt
-|
-| Die Spieler bleiben erhalten, damit das Turnier schnell
-| neu gestartet werden kann.
-|
-| Sicherheitsmechanismus:
-|
-| Der Benutzer muss zur Bestätigung den exakten Turniernamen
-| eingeben.
-|
-| Ablauf:
-|
-| 1. Sicherheitsprüfung (Turnierbesitzer)
-| 2. Bestätigungsname validieren
-| 3. Alle Spiele löschen
-| 4. Gruppen löschen
-| 5. Turnierstatus zurücksetzen
-|
-*/
+    /**
+     * Setzt das komplette Turnier zurück
+     *
+     * Diese Methode löscht:
+     * - Alle Spiele
+     * - Alle Gruppen
+     * - Setzt den Turnierstatus zurück auf "draft"
+     *
+     * Unterstützt sowohl:
+     * - Klassischen Request (Redirect zurück zur Seite)
+     * - AJAX Request (JSON Response mit fullReload)
+     *
+     * Sicherheitsmaßnahmen:
+     * - Turniername muss zur Bestätigung übergeben werden
+     * - Nur berechtigte Benutzer dürfen resetten
+     */
     public function reset(Request $request, Tournament $tournament)
     {
-        /*
-    |--------------------------------------------------------------------------
-    | Sicherheitsprüfung
-    |--------------------------------------------------------------------------
-    |
-    | Nur der Besitzer des Turniers darf einen Reset durchführen.
-    |
-    */
+        /**
+         * Sicherheitscheck:
+         * Prüft ob der aktuelle Benutzer Zugriff auf das Turnier hat
+         */
         $this->authorizeTournament($tournament);
 
-
-        /*
-    |--------------------------------------------------------------------------
-    | Bestätigungsname validieren (Willensbestätigung)
-    |--------------------------------------------------------------------------
-    |
-    | Der Benutzer muss den exakten Turniernamen eingeben.
-    |
-    | Diese Prüfung dient NICHT als Sicherheitsmechanismus,
-    | sondern als Schutz vor versehentlichen Aktionen.
-    |
-    | WICHTIG:
-    | - Fehler werden in einen eigenen Error-Bag ("reset") gelegt
-    | - Dadurch kann das Frontend gezielt das richtige Modal öffnen
-    |
-    */
+        /**
+         * Validierung:
+         * Der Benutzer muss den Turniernamen zur Bestätigung eingeben
+         * Dadurch wird verhindert, dass versehentlich ein Turnier gelöscht wird
+         */
         $validator = Validator::make(
             $request->all(),
             [
@@ -2052,57 +2029,71 @@ class TournamentController extends Controller
             ]
         );
 
+        /**
+         * Wenn Validierung fehlschlägt:
+         * - Bei AJAX → JSON Response mit Fehler
+         * - Bei normalem Request → Redirect zurück mit Fehler
+         */
         if ($validator->fails()) {
+
+            // AJAX Request
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Turniername stimmt nicht überein'
+                ], 422);
+            }
+
+            // Normaler Request
             return back()
-                ->withErrors($validator, 'reset') // 🔥 eigener Error-Bag
+                ->withErrors($validator, 'reset')
                 ->withInput();
         }
 
-
-        /*
-    |--------------------------------------------------------------------------
-    | Reset innerhalb einer Datenbank-Transaktion
-    |--------------------------------------------------------------------------
-    |
-    | Stellt sicher:
-    | - keine halbfertigen Zustände
-    | - vollständiger Rollback bei Fehlern
-    |
-    */
+        /**
+         * Datenbank-Transaktion:
+         * Alle Änderungen werden atomar durchgeführt
+         * Falls etwas fehlschlägt → alles wird zurückgerollt
+         */
         DB::transaction(function () use ($tournament) {
 
-            /*
-        |--------------------------------------------------------------------------
-        | Alle Spiele löschen
-        |--------------------------------------------------------------------------
-        */
+            /**
+             * Löscht alle Spiele des Turniers
+             */
             $tournament->games()->delete();
 
-
-            /*
-        |--------------------------------------------------------------------------
-        | Alle Gruppen löschen
-        |--------------------------------------------------------------------------
-        */
+            /**
+             * Löscht alle Gruppen des Turniers
+             */
             $tournament->groups()->delete();
 
-
-            /*
-        |--------------------------------------------------------------------------
-        | Turnierstatus zurücksetzen
-        |--------------------------------------------------------------------------
-        */
+            /**
+             * Setzt Turnierstatus zurück auf "draft"
+             * (Turnier ist wieder im Startzustand)
+             */
             $tournament->update([
                 'status' => 'draft'
             ]);
         });
 
+        /**
+         * AJAX Response
+         *
+         * Wird verwendet wenn Reset per JS ausgelöst wurde
+         * "fullReload" sorgt für komplettes Neuladen der Seite
+         */
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'fullReload' => true
+            ]);
+        }
 
-        /*
-    |--------------------------------------------------------------------------
-    | Redirect + Feedback
-    |--------------------------------------------------------------------------
-    */
+        /**
+         * Normaler Redirect
+         *
+         * Wird verwendet wenn Reset per Formular ausgelöst wurde
+         */
         return redirect()
             ->route('tournaments.show', $tournament)
             ->with('success', 'Turnier wurde zurückgesetzt.');
@@ -2801,7 +2792,7 @@ class TournamentController extends Controller
         $size = pow(2, ceil(log($playerCount, 2)));
 
         // Struktur erzeugen
-        app(\App\Services\KnockoutGenerator::class)
+        app(\App\Services\Knockout\KnockoutGenerator::class)
             ->generatePlaceholderBracket($lucky, $size);
 
         // Spieler laden
@@ -2828,7 +2819,7 @@ class TournamentController extends Controller
         $players = $slotted->values();
 
         // Spieler einsetzen
-        app(\App\Services\KnockoutGenerator::class)
+        app(\App\Services\Knockout\KnockoutGenerator::class)
             ->fillBracketPlayers($lucky, $players);
 
         /*
@@ -2843,12 +2834,12 @@ class TournamentController extends Controller
         foreach ($games as $game) {
 
             if ($game->player1_id && !$game->player2_id) {
-                app(\App\Services\TournamentEngine::class)
+                app(\App\Services\Knockout\KnockoutAdvancer::class)
                     ->handleWin($game, $game->player1_id);
             }
 
             if ($game->player2_id && !$game->player1_id) {
-                app(\App\Services\TournamentEngine::class)
+                app(\App\Services\Knockout\KnockoutAdvancer::class)
                     ->handleWin($game, $game->player2_id);
             }
         }

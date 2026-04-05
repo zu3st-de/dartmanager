@@ -34,14 +34,20 @@ function csrfToken() {
 |
 */
 function reloadGame(gameId) {
-    fetch(`/games/${gameId}/html`)
+
+    if (!gameId) return; fetch(`/games/${gameId}/next`)
+
+    fetch(`/games/${gameId}/reload`)
         .then(res => res.text())
         .then(html => {
+
             const wrapper = document.querySelector(`[data-game="${gameId}"]`);
             if (!wrapper) return;
 
-            // 🔥 ersetzt komplettes Spiel
             wrapper.outerHTML = html;
+        })
+        .catch(err => {
+            console.error('reloadGame ERROR:', err);
         });
 }
 
@@ -117,8 +123,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (data.success) {
 
-                    reloadGameChain(gameId);
+                    // KO → chain reload
+                    if (data.reload) {
+                        data.reload.forEach(id => reloadGame(id));
+                    }
 
+                    // Nur wenn explizit KO chain
+                    if (data.next_game_id) {
+                        reloadGameChain(gameId);
+                    }
                 } else {
                     alert(data.message || 'Fehler');
                 }

@@ -3,20 +3,56 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
-use App\Services\GroupTableCalculator;
+use App\Services\Group\GroupTableCalculator;
+
+/**
+ * ================================================================
+ * PublicController
+ * ================================================================
+ *
+ * Öffentliche Turnieransicht (Follow View)
+ *
+ * Verantwortlich für:
+ *
+ * - Öffentliche Turnieranzeige
+ * - Live Daten (AJAX)
+ * - Gruppenphase Darstellung
+ * - KO Phase Darstellung
+ * - Podium Anzeige
+ *
+ */
 
 class PublicController extends Controller
 {
-    /**
-     * ================================================================
-     * FOLLOW VIEW
-     * ================================================================
-     * Öffentliche Turnieransicht (Live / Follow)
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | FOLLOW VIEW
+    |--------------------------------------------------------------------------
+    |
+    | Öffentliche Turnierseite
+    |
+    | Beispiel:
+    | /follow/ABC123
+    |
+    */
+
     public function follow(Tournament $tournament)
     {
-        // Alle benötigten Relationen laden (Performance!)
+        /*
+        |--------------------------------------------------------------------------
+        | Alle benötigten Relationen laden (Performance!)
+        |--------------------------------------------------------------------------
+        */
+
         $tournament->load($this->relations());
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | View zurückgeben
+        |--------------------------------------------------------------------------
+        */
 
         return view('public.follow', [
             'tournament'        => $tournament,
@@ -24,16 +60,22 @@ class PublicController extends Controller
             'players'           => $this->getPlayers($tournament),
             'koRounds'          => $this->buildKoRounds($tournament),
             'thirdPlaceMatches' => $this->getThirdPlaceMatches($tournament),
+
+            // Podium Daten
             ...$this->resolvePodium($tournament),
         ]);
     }
 
 
-    /**
-     * ================================================================
-     * LIVE DATA (AJAX / POLLING)
-     * ================================================================
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | LIVE DATA (Polling / AJAX)
+    |--------------------------------------------------------------------------
+    |
+    | Wird regelmäßig vom Frontend abgefragt
+    |
+    */
+
     public function followData(Tournament $tournament)
     {
         $tournament->load($this->relations());
@@ -50,8 +92,11 @@ class PublicController extends Controller
     |--------------------------------------------------------------------------
     | RELATIONS
     |--------------------------------------------------------------------------
-    | Zentrale Definition aller benötigten Beziehungen
+    |
+    | Alle benötigten Beziehungen zentral definieren
+    |
     */
+
     private function relations(): array
     {
         return [
@@ -61,7 +106,7 @@ class PublicController extends Controller
             'games.player1',
             'games.player2',
             'games.winner',
-            'players' // 🔥 wichtig für Pre-Tournament
+            'players'
         ];
     }
 
@@ -70,8 +115,11 @@ class PublicController extends Controller
     |--------------------------------------------------------------------------
     | GROUP DATA
     |--------------------------------------------------------------------------
-    | Bereitet Gruppen inkl. Tabelle + Spielstatus auf
+    |
+    | Gruppen + Tabelle + Spielstatus vorbereiten
+    |
     */
+
     private function buildGroupData(Tournament $tournament): array
     {
         return $tournament->groups->map(function ($group) {
@@ -79,14 +127,37 @@ class PublicController extends Controller
             $games = $group->games;
 
             return [
-                'group'       => $group,
-                'table'       => app(GroupTableCalculator::class)->calculate($group),
-                'games'       => $games,
-                'lastGame'    => $games->whereNotNull('winner_id')->sortByDesc('updated_at')->first(),
-                'currentGame' => $games->whereNull('winner_id')->sortBy('id')->first(),
-                'nextGame'    => $games->whereNull('winner_id')->sortBy('id')->skip(1)->first(),
+
+                // Gruppe
+                'group' => $group,
+
+                // Tabelle berechnen
+                'table' => app(GroupTableCalculator::class)
+                    ->calculate($group),
+
+                // Spiele
+                'games' => $games,
+
+                // Letztes Spiel
+                'lastGame' => $games
+                    ->whereNotNull('winner_id')
+                    ->sortByDesc('updated_at')
+                    ->first(),
+
+                // Aktuelles Spiel
+                'currentGame' => $games
+                    ->whereNull('winner_id')
+                    ->sortBy('id')
+                    ->first(),
+
+                // Nächstes Spiel
+                'nextGame' => $games
+                    ->whereNull('winner_id')
+                    ->sortBy('id')
+                    ->skip(1)
+                    ->first(),
             ];
-        })->toArray();
+        })->values()->toArray();
     }
 
 
@@ -94,8 +165,11 @@ class PublicController extends Controller
     |--------------------------------------------------------------------------
     | KO ROUNDS
     |--------------------------------------------------------------------------
-    | Gruppiert alle KO-Spiele nach Runden
+    |
+    | KO Spiele nach Runden gruppieren
+    |
     */
+
     private function buildKoRounds(Tournament $tournament)
     {
         return $tournament->games
@@ -114,6 +188,7 @@ class PublicController extends Controller
     | THIRD PLACE MATCHES
     |--------------------------------------------------------------------------
     */
+
     private function getThirdPlaceMatches(Tournament $tournament)
     {
         return $tournament->games
@@ -123,57 +198,105 @@ class PublicController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | PODIUM (1., 2., 3. Platz)
+    | PODIUM
     |--------------------------------------------------------------------------
+    |
+    | 1. Platz
+    | 2. Platz
+    | 3. Platz
+    |
     */
+
     private function resolvePodium(Tournament $tournament): array
     {
         $winner = null;
         $secondPlace = null;
         $thirdPlace = null;
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Finale ermitteln
+        |--------------------------------------------------------------------------
+        */
+
         $final = $tournament->games
             ->whereNull('group_id')
             ->sortByDesc('round')
             ->first();
 
-        if ($final && $final->winner) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gewinner bestimmen
+        |--------------------------------------------------------------------------
+        */
+
+        if ($final?->winner) {
+
             $winner = $final->winner;
 
-            $secondPlace = $final->player1_id === $final->winner_id
+            $secondPlace =
+                $final->player1_id === $final->winner_id
                 ? $final->player2
                 : $final->player1;
         }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Spiel um Platz 3
+        |--------------------------------------------------------------------------
+        */
+
         $thirdPlaceMatch = $this->getThirdPlaceMatches($tournament)->first();
 
-        if ($thirdPlaceMatch && $thirdPlaceMatch->winner) {
+        if ($thirdPlaceMatch?->winner) {
             $thirdPlace = $thirdPlaceMatch->winner;
         }
 
-        return [
-            'winner'      => $winner,
-            'secondPlace' => $secondPlace,
-            'thirdPlace'  => $thirdPlace,
-        ];
+
+        return compact(
+            'winner',
+            'secondPlace',
+            'thirdPlace'
+        );
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | PLAYERS (WICHTIG!)
+    | PLAYERS
     |--------------------------------------------------------------------------
-    | Liefert:
-    | - echte Turnier-Spieler (immer vorhanden)
-    | - + bekannte Profi-Spieler (für Animation / Fallback)
+    |
+    | Turnierspieler + Pro Spieler
+    |
     */
+
     private function getPlayers(Tournament $tournament)
     {
-        // ✅ echte Spieler (Hauptquelle)
         $players = $tournament->players ?? collect();
 
-        // 🔥 Profi-Spieler (immer gleiche Struktur!)
-        $proPlayers = collect([
+        return $players
+            ->concat($this->proPlayers())
+            ->unique('name')
+            ->values();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | PRO PLAYERS
+    |--------------------------------------------------------------------------
+    |
+    | Demo Spieler für Animation
+    |
+    */
+
+    private function proPlayers()
+    {
+        return collect([
+
             'Gabriel Clemens',
             'Martin Schindler',
             'Max Hopp',
@@ -200,16 +323,13 @@ class PublicController extends Controller
 
             'Luke Littler',
             'Gian van Veen',
+
         ])->map(fn($name) => (object) [
-            'id'   => 'pro_' . md5($name),
+
+            'id' => 'pro_' . md5($name),
             'name' => $name,
             'is_pro' => true
-        ]);
 
-        // 🔁 kombinieren + Duplikate entfernen
-        return $players
-            ->concat($proPlayers)
-            ->unique('name')
-            ->values();
+        ]);
     }
 }

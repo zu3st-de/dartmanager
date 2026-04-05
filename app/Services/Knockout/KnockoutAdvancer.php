@@ -1,63 +1,50 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Knockout;
 
 use App\Models\Game;
 use App\Models\Tournament;
 
 /**
  * ================================================================
- * KnockoutGenerator
+ * KnockoutAdvancer
  * ================================================================
  *
- * Verantwortlich für die Erstellung und Befüllung eines KO-Baums.
+ * Verantwortlich für:
  *
- * Hauptaufgaben:
- * - Generieren eines vollständigen Brackets (2^n Größe)
- * - Platzieren von Spielern im Baum
- * - Umgang mit BYEs (Freilosen)
+ * - Gewinner speichern
+ * - Gewinner weiterleiten
+ * - Platz-3 Spiel befüllen
+ * - Turnier abschließen
+ * - Reload IDs zurückgeben
  *
- * WICHTIG:
- * - Diese Klasse erstellt NUR die Struktur
- * - Spielausgänge werden durch TournamentEngine verarbeitet
+ * Wird aufgerufen nach Ergebnis-Eingabe eines Spiels
  *
- * Typischer Ablauf:
- * 1. generatePlaceholderBracket()
- * 2. fillBracketPlayers()
- * 3. BYEs automatisch weiterleiten
- *
- * Diese Klasse enthält KEINE Business-Logik zur Qualifikation!
  */
-class TournamentEngine
+
+class KnockoutAdvancer
 {
     /**
      * ============================================================
      * HANDLE WIN
      * ============================================================
      *
-     * Wird aufgerufen, sobald ein Spiel entschieden wurde.
+     * Wird aufgerufen sobald ein Spiel entschieden wurde
      *
-     * Ablauf:
+     * Rückgabe:
+     * - reload → Games neu laden
+     * - fullReload → kompletter Reload nötig
      *
-     * 1. Gruppenspiel?
-     *    → Nur Ergebnis speichern, KEINE KO-Logik
-     *
-     * 2. KO-Spiel:
-     *    → Gewinner speichern
-     *    → ggf. weiterleiten
-     *    → ggf. Platz-3-Spiel befüllen
-     *    → ggf. Turnier beenden
      */
-    public function handleWin(Game $game, int $winnerId): void
+    public function handleWin(Game $game, int $winnerId): array
     {
+        $reload = [];
+        $finished = false;
+
         /*
         |--------------------------------------------------------------------------
         | 1. Gruppenspiele strikt isolieren
         |--------------------------------------------------------------------------
-        |
-        | EXTREM WICHTIG:
-        | Gruppenspiele dürfen NIEMALS KO-Logik triggern.
-        |
         */
 
         if ($this->isGroupMatch($game)) {
@@ -66,13 +53,16 @@ class TournamentEngine
                 'winner_id' => $winnerId
             ]);
 
-            return;
+            return [
+                'reload' => [],
+                'fullReload' => false
+            ];
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | 2. Gewinner im KO-Spiel speichern
+        | 2. Gewinner speichern
         |--------------------------------------------------------------------------
         */
 
@@ -86,14 +76,18 @@ class TournamentEngine
 
         /*
         |--------------------------------------------------------------------------
-        | 3. Platz-3-Spiel selbst
+        | 3. Spiel um Platz 3 selbst
         |--------------------------------------------------------------------------
         */
 
         if ($game->is_third_place) {
 
-            $this->tryFinishTournament($tournament);
-            return;
+            $finished = $this->tryFinishTournament($tournament);
+
+            return [
+                'reload' => [],
+                'fullReload' => $finished
+            ];
         }
 
 
@@ -105,12 +99,6 @@ class TournamentEngine
 
         if ($game->round === $totalRounds && !$game->is_third_place) {
 
-            /*
-            |----------------------------------------------------------
-            | Kein Platz 3 → direkt fertig
-            |----------------------------------------------------------
-            */
-
             if (!$tournament->has_third_place) {
 
                 $tournament->update([
@@ -118,32 +106,37 @@ class TournamentEngine
                     'winner_id' => $winnerId
                 ]);
 
-                return;
+                return [
+                    'reload' => [],
+                    'fullReload' => true
+                ];
             }
 
-            /*
-            |----------------------------------------------------------
-            | Platz 3 vorhanden → warten bis beide fertig
-            |----------------------------------------------------------
-            */
+            $finished = $this->tryFinishTournament($tournament);
 
-            $this->tryFinishTournament($tournament);
-            return;
+            return [
+                'reload' => [],
+                'fullReload' => $finished
+            ];
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | 5. Normales KO-Spiel
+        | 5. Gewinner weiterleiten
         |--------------------------------------------------------------------------
         */
 
-        $this->advanceWinner($game, $winnerId);
+        $nextGame = $this->advanceWinner($game, $winnerId);
+
+        if ($nextGame) {
+            $reload[] = $nextGame->id;
+        }
 
 
         /*
         |--------------------------------------------------------------------------
-        | 6. Platz-3-Spiel befüllen (nur Halbfinale)
+        | 6. Platz-3 Spiel befüllen (Halbfinale)
         |--------------------------------------------------------------------------
         */
 
@@ -157,22 +150,29 @@ class TournamentEngine
                     : $game->player1_id;
 
                 $thirdPlaceGame = Game::where('tournament_id', $tournament->id)
-                    ->where('round', $totalRounds)
                     ->where('is_third_place', true)
                     ->first();
 
                 if ($thirdPlaceGame) {
 
-                    if (!$thirdPlaceGame->player1_id) {
+                    // Position bestimmt Slot
+                    if ($game->position % 2 === 1) {
                         $thirdPlaceGame->player1_id = $loserId;
                     } else {
                         $thirdPlaceGame->player2_id = $loserId;
                     }
 
                     $thirdPlaceGame->save();
+
+                    $reload[] = $thirdPlaceGame->id;
                 }
             }
         }
+
+        return [
+            'reload' => array_unique($reload),
+            'fullReload' => $finished
+        ];
     }
 
 
@@ -180,48 +180,69 @@ class TournamentEngine
      * ============================================================
      * TURNIER ABSCHLIESSEN
      * ============================================================
-     *
-     * Prüft ob:
-     *
-     * - Finale beendet ist
-     * - (optional) Spiel um Platz 3 beendet ist
-     *
-     * → setzt Status auf "finished"
      */
-    private function tryFinishTournament(Tournament $tournament): void
-    {
 
-        // 🔥 Finale laden
+    private function tryFinishTournament(Tournament $tournament): bool
+    {
+        /*
+        |--------------------------------------------------------------------------
+        | Finale prüfen
+        |--------------------------------------------------------------------------
+        */
+
         $finalGame = Game::where('tournament_id', $tournament->id)
             ->where('is_third_place', false)
             ->whereNull('group_id')
             ->orderByDesc('round')
             ->first();
 
-        // ❌ kein Finale oder nicht entschieden
         if (!$finalGame || !$finalGame->winner_id) {
-            return;
+            return false;
         }
 
-        // 🔥 Kein Platz 3 → sofort fertig
+
+        /*
+        |--------------------------------------------------------------------------
+        | Kein Spiel um Platz 3
+        |--------------------------------------------------------------------------
+        */
+
         if (!$tournament->has_third_place) {
-            $tournament->update(['status' => 'finished']);
-            return;
+
+            $tournament->update([
+                'status' => 'finished'
+            ]);
+
+            return true;
         }
 
-        // 🔥 Platz 3 prüfen
+
+        /*
+        |--------------------------------------------------------------------------
+        | Spiel um Platz 3 prüfen
+        |--------------------------------------------------------------------------
+        */
+
         $thirdGame = Game::where('tournament_id', $tournament->id)
             ->where('is_third_place', true)
             ->first();
 
         if (!$thirdGame || !$thirdGame->winner_id) {
-            return;
+            return false;
         }
 
-        // 🔥 Beide fertig → Turnier fertig
+
+        /*
+        |--------------------------------------------------------------------------
+        | Turnier beenden
+        |--------------------------------------------------------------------------
+        */
+
         $tournament->update([
             'status' => 'finished'
         ]);
+
+        return true;
     }
 
 
@@ -229,21 +250,15 @@ class TournamentEngine
      * ============================================================
      * GEWINNER WEITERLEITEN
      * ============================================================
-     *
-     * Setzt den Gewinner in das nächste KO-Spiel.
-     *
-     * Beispiel:
-     *
-     * Achtelfinale → Viertelfinale
      */
-    private function advanceWinner(Game $game, int $winnerId): void
+
+    private function advanceWinner(Game $game, int $winnerId): ?Game
     {
         $tournament = $game->tournament;
         $totalRounds = $this->getTotalRounds($tournament);
 
-        // Finale erreicht → nichts mehr zu tun
         if ($game->round >= $totalRounds) {
-            return;
+            return null;
         }
 
         $nextRound = $game->round + 1;
@@ -252,15 +267,14 @@ class TournamentEngine
         $nextGame = Game::where('tournament_id', $game->tournament_id)
             ->where('round', $nextRound)
             ->where('position', $nextPosition)
-            ->whereNull('group_id')          // nur KO
+            ->whereNull('group_id')
             ->where('is_third_place', false)
             ->first();
 
         if (!$nextGame) {
-            return;
+            return null;
         }
 
-        // Position bestimmt Slot (links/rechts im Baum)
         if ($game->position % 2 === 1) {
             $nextGame->player1_id = $winnerId;
         } else {
@@ -268,6 +282,8 @@ class TournamentEngine
         }
 
         $nextGame->save();
+
+        return $nextGame;
     }
 
 
@@ -275,13 +291,8 @@ class TournamentEngine
      * ============================================================
      * GRUPPENSPIEL ERKENNEN
      * ============================================================
-     *
-     * WICHTIG:
-     *
-     * NICHT über round prüfen!
-     *
-     * → einzig sichere Methode ist group_id
      */
+
     private function isGroupMatch(Game $game): bool
     {
         return $game->group_id !== null;
@@ -290,18 +301,14 @@ class TournamentEngine
 
     /**
      * ============================================================
-     * ANZAHL KO-RUNDEN
+     * KO RUNDEN BERECHNEN
      * ============================================================
-     *
-     * Beispiel:
-     *
-     * 8 Spieler → 3 Runden
-     * 16 Spieler → 4 Runden
      */
+
     private function getTotalRounds(Tournament $tournament): int
     {
         return (int) Game::where('tournament_id', $tournament->id)
-            ->whereNull('group_id') // nur KO
+            ->whereNull('group_id')
             ->max('round');
     }
 }
