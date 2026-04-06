@@ -41,6 +41,7 @@ class TvController extends Controller
         // Alle Turniere des Users
         $tournaments = auth()->user()
             ->tournaments()
+            ->where('status', '!=', 'archived')
             ->orderBy('name')
             ->get();
 
@@ -74,15 +75,22 @@ class TvController extends Controller
 
     public function save(Request $request)
     {
+        $validated = $request->validate([
+            'tournaments' => ['nullable', 'array'],
+            'tournaments.*' => ['integer'],
+            'rotation_time' => ['nullable', 'integer', 'min:5', 'max:300'],
+        ]);
+
         // Nur eigene Turniere erlauben
         $userTournamentIds = auth()->user()
             ->tournaments()
+            ->where('status', '!=', 'archived')
             ->pluck('id')
             ->toArray();
 
 
         // Rotationszeit
-        $rotationTime = (int) $request->rotation_time ?: 20;
+        $rotationTime = (int) ($validated['rotation_time'] ?? 20);
 
 
         // Alte Einträge löschen
@@ -90,10 +98,9 @@ class TvController extends Controller
 
 
         $position = 1;
-        $created = false;
 
 
-        foreach ($request->tournaments ?? [] as $id) {
+        foreach ($validated['tournaments'] ?? [] as $id) {
 
             // Sicherheit: nur eigene Turniere
             if (!in_array($id, $userTournamentIds)) {
@@ -108,23 +115,6 @@ class TvController extends Controller
             ]);
 
             $position++;
-            $created = true;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fallback wenn nichts ausgewählt
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$created) {
-            TvTournament::create([
-                'user_id' => auth()->id(),
-                'tournament_id' => null,
-                'position' => 1,
-                'rotation_time' => $rotationTime,
-            ]);
         }
 
 

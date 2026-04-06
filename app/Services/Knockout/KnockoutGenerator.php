@@ -30,6 +30,58 @@ use App\Models\Game;
  */
 class KnockoutGenerator
 {
+    public function generateDirectBracket(Tournament $tournament, $players): void
+    {
+        $players = collect($players)->values();
+        $playerCount = $players->count();
+
+        if ($playerCount < 2) {
+            return;
+        }
+
+        $size = (int) pow(2, ceil(log($playerCount, 2)));
+
+        $this->generatePlaceholderBracket($tournament, $size);
+
+        $byes = $size - $playerCount;
+        $slotted = collect();
+
+        for ($i = 0; $i < $byes; $i++) {
+            $slotted->push($players[$i] ?? null);
+            $slotted->push(null);
+        }
+
+        for ($i = $byes; $i < $playerCount; $i++) {
+            $slotted->push($players[$i]);
+        }
+
+        while ($slotted->count() < $size) {
+            $slotted->push(null);
+        }
+
+        $players = $slotted->values();
+
+        $this->fillBracketPlayers($tournament, $players);
+
+        $games = Game::where('tournament_id', $tournament->id)
+            ->whereNull('group_id')
+            ->where('round', 1)
+            ->orderBy('position')
+            ->get();
+
+        foreach ($games as $game) {
+            if ($game->player1_id && !$game->player2_id) {
+                app(KnockoutAdvancer::class)
+                    ->handleWin($game, $game->player1_id);
+            }
+
+            if ($game->player2_id && !$game->player1_id) {
+                app(KnockoutAdvancer::class)
+                    ->handleWin($game, $game->player2_id);
+            }
+        }
+    }
+
 
     /**
      * ============================================================
@@ -301,4 +353,5 @@ class KnockoutGenerator
 
         return $positions;
     }
+
 }

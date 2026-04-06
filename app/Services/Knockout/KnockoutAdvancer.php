@@ -264,18 +264,36 @@ class KnockoutAdvancer
         $nextRound = $game->round + 1;
         $nextPosition = (int) ceil($game->position / 2);
 
+        $winnerSource = 'W' . $game->position;
+
         $nextGame = Game::where('tournament_id', $game->tournament_id)
+            ->where('round', $nextRound)
+            ->whereNull('group_id')
+            ->where('is_third_place', false)
+            ->where(function ($query) use ($winnerSource) {
+                $query->where('player1_source', $winnerSource)
+                    ->orWhere('player2_source', $winnerSource);
+            })
+            ->first();
+
+        if (!$nextGame) {
+            $nextGame = Game::where('tournament_id', $game->tournament_id)
             ->where('round', $nextRound)
             ->where('position', $nextPosition)
             ->whereNull('group_id')
             ->where('is_third_place', false)
             ->first();
+        }
 
         if (!$nextGame) {
             return null;
         }
 
-        if ($game->position % 2 === 1) {
+        if ($nextGame->player1_source === $winnerSource) {
+            $nextGame->player1_id = $winnerId;
+        } elseif ($nextGame->player2_source === $winnerSource) {
+            $nextGame->player2_id = $winnerId;
+        } elseif ($game->position % 2 === 1) {
             $nextGame->player1_id = $winnerId;
         } else {
             $nextGame->player2_id = $winnerId;

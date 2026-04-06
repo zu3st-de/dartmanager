@@ -1,8 +1,12 @@
+@php
+    $participantsReady = $game->player1_id && $game->player2_id;
+@endphp
+
 <div
     class="bg-gray-800 border border-gray-700 rounded-lg p-4 shadow mb-4 min-w-[240px] min-h-[160px] flex flex-col justify-center relative">
 
 
-    @if (!$game->winner_id && $tournament->status === 'ko_running')
+    @if (!$game->winner_id && $tournament->status === 'ko_running' && $participantsReady)
         <form method="POST" class="simulate-ko-form score-form" data-url="{{ route('games.score', $game) }}"
             data-game-id="{{ $game->id }}" data-round="{{ $game->round }}">
 
@@ -49,13 +53,19 @@
         @php
             $p1Winner = (int) $game->winner_id === (int) $game->player1_id;
             $p2Winner = (int) $game->winner_id === (int) $game->player2_id;
+            $showWinnerState = $participantsReady && $game->winner_id;
         @endphp
 
         <div class="space-y-2 text-sm">
+            @if (!$participantsReady)
+                <div class="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                    Wartet auf Teilnehmer
+                </div>
+            @endif
 
             <div
                 class="flex justify-between items-center px-3 py-2 rounded
-            @if ($p1Winner) bg-green-600/20 border border-green-500/40
+            @if ($showWinnerState && $p1Winner) bg-green-600/20 border border-green-500/40
             @else bg-gray-900 border border-gray-700 opacity-70 @endif">
 
                 <span>{{ $game->player1->name ?? $game->player1_source }}</span>
@@ -64,7 +74,7 @@
 
             <div
                 class="flex justify-between items-center px-3 py-2 rounded
-            @if ($p2Winner) bg-green-600/20 border border-green-500/40
+            @if ($showWinnerState && $p2Winner) bg-green-600/20 border border-green-500/40
             @else bg-gray-900 border border-gray-700 opacity-70 @endif">
 
                 <span>{{ $game->player2->name ?? $game->player2_source }}</span>

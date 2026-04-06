@@ -30,15 +30,10 @@ class TournamentStarter
                 ]);
             } else {
 
-                $players = $tournament->players()->get();
-
-                $size = pow(2, ceil(log($players->count(), 2)));
+                $players = $tournament->players()->get()->values();
 
                 app(KnockoutGenerator::class)
-                    ->generatePlaceholderBracket($tournament, $size);
-
-                app(KnockoutGenerator::class)
-                    ->fillBracketPlayers($tournament, $players);
+                    ->generateDirectBracket($tournament, $players);
 
                 $tournament->update([
                     'status' => 'ko_running'

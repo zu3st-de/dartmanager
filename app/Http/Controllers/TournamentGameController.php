@@ -47,6 +47,13 @@ class TournamentGameController extends Controller
             ]);
         }
 
+        if (!$game->player1_id || !$game->player2_id) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Ergebnisse können erst eingetragen werden, wenn beide Teilnehmer feststehen.',
+            ], 422);
+        }
+
 
         /*
         |--------------------------------------------------------------------------

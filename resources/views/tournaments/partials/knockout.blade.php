@@ -11,22 +11,22 @@
         */
     function roundName($round, $mainRounds)
     {
-        // Erste Runde (enthält alle Startspiele)
-        $firstRound = $mainRounds->first();
+        $baseRound = $mainRounds
+            ->sortByDesc(fn($games) => $games->count())
+            ->keys()
+            ->first() ?? 1;
 
-        // Anzahl Spiele in Runde 1
-        $gamesFirstRound = $firstRound ? $firstRound->count() : 0;
-
-        // Teilnehmerzahl berechnen (2 Spieler pro Spiel)
-        $totalPlayers = $gamesFirstRound * 2;
-
-        // Sonderfall: nur ein Spiel → Finale
-        if ($totalPlayers <= 1) {
-            return 'Finale';
+        if ($round < $baseRound) {
+            return $baseRound - $round === 1
+                ? 'Vorrunde'
+                : 'Vorrunde ' . ($baseRound - $round);
         }
 
-        // Anzahl Runden im KO-System (log2)
-        $totalRounds = (int) log($totalPlayers, 2);
+        $totalRounds = $mainRounds->keys()->max() ?? 1;
+
+        if ($totalRounds <= 1) {
+            return 'Finale';
+        }
 
         // Abstand zum Finale bestimmen
         $roundsLeft = $totalRounds - $round + 1;
@@ -98,10 +98,23 @@
     $positions = [];
     $svgLines = [];
     $finalY = null;
+    $gameLookup = [];
+    $yStep = $matchHeight + $verticalSpacing;
+
+    foreach ($mainRounds as $round => $roundGames) {
+        foreach ($roundGames->sortBy('position')->values() as $game) {
+            $gameLookup[$round][$game->position] = $game;
+        }
+    }
+
+    $baseRound = $mainRounds
+        ->sortByDesc(fn($games) => $games->count())
+        ->keys()
+        ->first() ?? 1;
 
     // 🔹 Höhe des gesamten Brackets berechnen
-    $totalFirstRound = $mainRounds[1]->count();
-    $bracketHeight = $totalFirstRound * ($matchHeight + $verticalSpacing);
+    $baseRoundCount = $mainRounds[$baseRound]->count();
+    $bracketHeight = max($baseRoundCount, 1) * $yStep;
 
     /*
         |--------------------------------------------------------------------------
@@ -114,107 +127,116 @@
         |
         */
 
-    foreach ($mainRounds as $round => $roundGames) {
-        // 🔹 Spiele korrekt sortieren
-        $roundGames = $roundGames->sortBy('position')->values();
+    if (isset($mainRounds[$baseRound])) {
+        foreach ($mainRounds[$baseRound]->sortBy('position')->values() as $i => $game) {
+            $positions[$baseRound][$game->position] = $headerOffset + $i * $yStep;
+        }
+    }
 
-        // 🔹 X-Position basiert auf Runde
-        $roundIndex = $round - 1;
+    for ($round = $baseRound + 1; $round <= $finalRound; $round++) {
+        $roundGames = $mainRounds[$round]->sortBy('position')->values();
 
         foreach ($roundGames as $i => $game) {
-            /*
-                |--------------------------------------------------------------------------
-                | 📍 Y-POSITION BERECHNEN
-                |--------------------------------------------------------------------------
-                */
+            $sourcePositions = collect([
+                $game->player1_source,
+                $game->player2_source,
+            ])->filter()
+                ->map(function ($source) use ($positions, $round) {
+                    if (!preg_match('/^W(\d+)$/', $source, $matches)) {
+                        return null;
+                    }
 
-            if ($round == 1) {
-                // Erste Runde: linear von oben nach unten
-                $y = $i * ($matchHeight + $verticalSpacing) + $headerOffset;
+                    return $positions[$round - 1][(int) $matches[1]] ?? null;
+                })
+                ->filter()
+                ->values();
+
+            if ($sourcePositions->isNotEmpty()) {
+                $y = $sourcePositions->avg();
             } else {
-                // Folge-Runden: zwischen zwei Vorgängern zentrieren
-                $prev1 = $positions[$round - 1][$i * 2] ?? 0;
-                $prev2 = $positions[$round - 1][$i * 2 + 1] ?? 0;
-
-                // Mittelpunkt bestimmen
-                $y = ($prev1 + $prev2) / 2;
+                $y = $headerOffset + $i * $yStep;
             }
 
-            // Position speichern
-            $positions[$round][$i] = $y;
+            $positions[$round][$game->position] = $y;
+        }
+    }
 
-            // Finale merken (für Platz-3-Spiel)
+    for ($round = $baseRound - 1; $round >= 1; $round--) {
+        $roundGames = $mainRounds[$round]->sortBy('position')->values();
+
+        foreach ($roundGames as $i => $game) {
+            $targetRoundGames = $mainRounds[$round + 1]->sortBy('position')->values();
+
+            $targetGame = $targetRoundGames->first(function ($candidate) use ($game) {
+                return $candidate->player1_source === 'W' . $game->position
+                    || $candidate->player2_source === 'W' . $game->position;
+            });
+
+            if ($targetGame) {
+                $y = $positions[$round + 1][$targetGame->position] ?? ($headerOffset + $i * $yStep);
+            } else {
+                $y = $headerOffset + $i * $yStep;
+            }
+
+            $positions[$round][$game->position] = $y;
+        }
+    }
+
+    foreach ($mainRounds as $round => $roundGames) {
+        foreach ($roundGames->sortBy('position')->values() as $game) {
+            $y = $positions[$round][$game->position] ?? $headerOffset;
+
             if ($round === $finalRound) {
                 $finalY = $y;
             }
 
-            /*
-                |--------------------------------------------------------------------------
-                | 🔗 SVG-LINIEN ZEICHNEN
-                |--------------------------------------------------------------------------
-                */
+            if ($round <= 1) {
+                continue;
+            }
 
-            if ($round > 1) {
-                $xStart = ($roundIndex - 1) * $roundWidth + 200;
-                $xEnd = $roundIndex * $roundWidth;
+            $roundIndex = $round - 1;
+            $xStart = ($roundIndex - 1) * $roundWidth + 200;
+            $xEnd = $roundIndex * $roundWidth;
 
-                // Vorgänger-Spiele
-                $prevGames = $mainRounds[$round - 1]->sortBy('position')->values();
-                $prevGame1 = $prevGames[$i * 2] ?? null;
-                $prevGame2 = $prevGames[$i * 2 + 1] ?? null;
+            foreach (['player1_source', 'player2_source'] as $sourceField) {
+                $source = $game->{$sourceField};
 
-                // Y-Positionen der Vorgänger
-                $prev1 = $positions[$round - 1][$i * 2] ?? 0;
-                $prev2 = $positions[$round - 1][$i * 2 + 1] ?? 0;
+                if (!$source || !preg_match('/^W(\d+)$/', $source, $matches)) {
+                    continue;
+                }
 
-                // Prüfen, ob Champion durchläuft (für grüne Linien)
-                $topChampion = $championId && $prevGame1 && $prevGame1->winner_id === $championId;
-                $bottomChampion = $championId && $prevGame2 && $prevGame2->winner_id === $championId;
+                $sourcePosition = (int) $matches[1];
+                $prevGame = $gameLookup[$round - 1][$sourcePosition] ?? null;
+                $prevY = $positions[$round - 1][$sourcePosition] ?? null;
 
-                // Mittelpunkt zwischen beiden Spielen
-                $mid = ($prev1 + $prev2) / 2;
+                if (!$prevGame || $prevY === null) {
+                    continue;
+                }
 
-                // Horizontale Linien links
+                $isChampionPath = $championId && $prevGame->winner_id === $championId;
+                $color = $isChampionPath ? '#22c55e' : '#4b5563';
+                $midX = $xStart + 30;
+
                 $svgLines[] = [
                     'x1' => $xStart,
-                    'y1' => $prev1,
-                    'x2' => $xStart + 30,
-                    'y2' => $prev1,
-                    'color' => $topChampion ? '#22c55e' : '#4b5563',
+                    'y1' => $prevY,
+                    'x2' => $midX,
+                    'y2' => $prevY,
+                    'color' => $color,
                 ];
                 $svgLines[] = [
-                    'x1' => $xStart,
-                    'y1' => $prev2,
-                    'x2' => $xStart + 30,
-                    'y2' => $prev2,
-                    'color' => $bottomChampion ? '#22c55e' : '#4b5563',
-                ];
-
-                // Vertikale Verbindung
-                $svgLines[] = [
-                    'x1' => $xStart + 30,
-                    'y1' => $prev1,
-                    'x2' => $xStart + 30,
-                    'y2' => $mid,
-                    'color' => $topChampion ? '#22c55e' : '#4b5563',
+                    'x1' => $midX,
+                    'y1' => $prevY,
+                    'x2' => $midX,
+                    'y2' => $y,
+                    'color' => $color,
                 ];
                 $svgLines[] = [
-                    'x1' => $xStart + 30,
-                    'y1' => $mid,
-                    'x2' => $xStart + 30,
-                    'y2' => $prev2,
-                    'color' => $bottomChampion ? '#22c55e' : '#4b5563',
-                ];
-
-                // Verbindung zur aktuellen Runde
-                $currentChampion = $championId && $game->winner_id === $championId;
-
-                $svgLines[] = [
-                    'x1' => $xStart + 30,
+                    'x1' => $midX,
                     'y1' => $y,
                     'x2' => $xEnd,
                     'y2' => $y,
-                    'color' => $currentChampion ? '#22c55e' : '#4b5563',
+                    'color' => $color,
                 ];
             }
         }
@@ -298,7 +320,7 @@
                 @foreach ($roundGames as $i => $game)
                     @php
                         // Y-Position aus vorher berechneten Daten
-                        $y = $positions[$round][$i];
+                        $y = $positions[$round][$game->position];
 
                         // X-Position der Runde
                         $x = $roundIndex * $roundWidth;

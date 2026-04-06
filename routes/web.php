@@ -157,7 +157,7 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::post('/tournaments/{tournament}/reset', [TournamentAdminController::class, 'reset'])
+    Route::post('/tournaments/{tournament}/reset', [TournamentController::class, 'reset'])
         ->name('tournaments.reset');
 
     // ✅ FIX: resetKo gehört zum TournamentController

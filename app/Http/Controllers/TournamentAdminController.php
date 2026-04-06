@@ -227,16 +227,10 @@ class TournamentAdminController extends Controller
             |--------------------------------------------------------------------------
             */ else {
 
-                $players = $tournament->players()->get();
-
-                $playerCount = $players->count();
-                $size = pow(2, ceil(log($playerCount, 2)));
+                $players = $tournament->players()->get()->values();
 
                 app(KnockoutGenerator::class)
-                    ->generatePlaceholderBracket($tournament, $size);
-
-                app(KnockoutGenerator::class)
-                    ->fillBracketPlayers($tournament, $players);
+                    ->generateDirectBracket($tournament, $players);
 
                 $tournament->update([
                     'status' => 'ko_running'

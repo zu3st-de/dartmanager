@@ -62,7 +62,7 @@
 
 @push('scripts')
     <script>
-        const rotationTime = {{ \App\Models\TvTournament::value('rotation_time') ?? 20 }};
+        const rotationTime = {{ \App\Models\TvTournament::where('user_id', auth()->id())->value('rotation_time') ?? 20 }};
 
         document.addEventListener("DOMContentLoaded", function() {
 

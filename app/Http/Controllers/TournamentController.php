@@ -1054,148 +1054,8 @@ class TournamentController extends Controller
     */
                 $players = $tournament->players()->get()->values();
 
-
-                /*
-    |--------------------------------------------------------------------------
-    | 🔹 Spieleranzahl & Zielgröße (2er-Potenz)
-    |--------------------------------------------------------------------------
-    |
-    | KO-System braucht:
-    | 2, 4, 8, 16, 32, ...
-    |
-    | Beispiel:
-    | 6 Spieler → 8er Bracket
-    |
-    */
-                $playerCount = $players->count();
-                $size = pow(2, ceil(log($playerCount, 2)));
-
-
-                /*
-    |--------------------------------------------------------------------------
-    | 🔹 Anzahl der Freilose (BYEs)
-    |--------------------------------------------------------------------------
-    |
-    | Differenz zwischen Bracketgröße und Spieleranzahl
-    |
-    */
-                $byes = $size - $playerCount;
-
-
-                /*
-    |--------------------------------------------------------------------------
-    | 🔹 Spieler + BYEs sinnvoll verteilen
-    |--------------------------------------------------------------------------
-    |
-    | Ziel:
-    |
-    | - KEINE BYE vs BYE Spiele
-    | - BYEs gehen an die ersten Spieler
-    | - kompatibel mit Seeding!
-    |
-    | Beispiel (6 Spieler):
-    |
-    | Input:
-    | [P1, P2, P3, P4, P5, P6]
-    |
-    | Output:
-    | [P1, null, P2, null, P3, P4, P5, P6]
-    |
-    */
-                $slotted = collect();
-
-                // 🔹 Spieler mit BYE (je ein Match)
-                for ($i = 0; $i < $byes; $i++) {
-
-                    $slotted->push($players[$i]); // Spieler
-                    $slotted->push(null);         // Freilos
-                }
-
-                // 🔹 restliche Spieler normal anhängen
-                for ($i = $byes; $i < $playerCount; $i++) {
-                    $slotted->push($players[$i]);
-                }
-
-                // 🔹 Sicherheitscheck (sollte eigentlich nie nötig sein)
-                if ($slotted->count() < $size) {
-                    $slotted->push(null);
-                }
-
-                $players = $slotted->values();
-
-
-                /*
-    |--------------------------------------------------------------------------
-    | 🔹 KO-Bracket Struktur erzeugen
-    |--------------------------------------------------------------------------
-    |
-    | Erstellt:
-    | - alle Runden
-    | - alle Spiele
-    |
-    | OHNE Spieler!
-    |
-    */
                 app(KnockoutGenerator::class)
-                    ->generatePlaceholderBracket($tournament, $size);
-
-
-                /*
-    |--------------------------------------------------------------------------
-    | 🔹 Spieler in Runde 1 einsetzen
-    |--------------------------------------------------------------------------
-    |
-    | Spieler werden paarweise verteilt:
-    |
-    | [P1, null, P2, null, P3, P4, ...]
-    |
-    | → ergibt:
-    |
-    | P1 vs BYE
-    | P2 vs BYE
-    | P3 vs P4
-    |
-    */
-                app(KnockoutGenerator::class)
-                    ->fillBracketPlayers($tournament, $players);
-
-
-                /*
-    |--------------------------------------------------------------------------
-    | 🔹 BYEs automatisch gewinnen lassen
-    |--------------------------------------------------------------------------
-    |
-    | Wichtig:
-    | handleWin() übernimmt:
-    |
-    | - winner_id setzen
-    | - Spieler in nächste Runde setzen
-    | - Turnierfluss korrekt weiterführen
-    |
-    | Dadurch:
-    | → Spieler mit BYE sind direkt in Runde 2
-    |
-    */
-                $games = Game::where('tournament_id', $tournament->id)
-                    ->where('round', 1)
-                    ->get();
-
-                foreach ($games as $game) {
-
-                    // Spieler 1 gewinnt gegen BYE
-                    if ($game->player1_id && !$game->player2_id) {
-
-                        app(KnockoutAdvancer::class)
-                            ->handleWin($game, $game->player1_id);
-                    }
-
-                    // Spieler 2 gewinnt gegen BYE
-                    if ($game->player2_id && !$game->player1_id) {
-
-                        app(KnockoutAdvancer::class)
-                            ->handleWin($game, $game->player2_id);
-                    }
-                }
+                    ->generateDirectBracket($tournament, $players);
 
 
                 /*
@@ -1272,6 +1132,22 @@ class TournamentController extends Controller
             }
 
             return back();
+        }
+
+        if (!$game->player1_id || !$game->player2_id) {
+
+            $message = 'Ergebnisse können erst eingetragen werden, wenn beide Teilnehmer feststehen.';
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $message,
+                ], 422);
+            }
+
+            return back()->withErrors([
+                'score' => $message,
+            ]);
         }
 
 
@@ -2763,8 +2639,13 @@ class TournamentController extends Controller
                 'user_id' => $tournament->user_id,
                 'mode' => 'ko',
                 'status' => 'draft',
+                'has_third_place' => true,
             ]
         );
+
+        $lucky->update([
+            'has_third_place' => true,
+        ]);
 
         /*
     |--------------------------------------------------------------------------
@@ -2788,61 +2669,14 @@ class TournamentController extends Controller
         $lucky->games()->delete();
         $lucky->groups()->delete();
 
-        $playerCount = $lucky->players()->count();
-        $size = pow(2, ceil(log($playerCount, 2)));
-
-        // Struktur erzeugen
-        app(\App\Services\Knockout\KnockoutGenerator::class)
-            ->generatePlaceholderBracket($lucky, $size);
-
-        // Spieler laden
         $players = $lucky->players()->get()->values();
 
-        /*
-    |--------------------------------------------------------------------------
-    | BYE Logik (wie im Hauptturnier)
-    |--------------------------------------------------------------------------
-    */
-        $byes = $size - $playerCount;
-
-        $slotted = collect();
-
-        for ($i = 0; $i < $byes; $i++) {
-            $slotted->push($players[$i] ?? null);
-            $slotted->push(null);
-        }
-
-        for ($i = $byes; $i < $playerCount; $i++) {
-            $slotted->push($players[$i]);
-        }
-
-        $players = $slotted->values();
-
-        // Spieler einsetzen
         app(\App\Services\Knockout\KnockoutGenerator::class)
-            ->fillBracketPlayers($lucky, $players);
+            ->generateDirectBracket($lucky, $players);
 
-        /*
-    |--------------------------------------------------------------------------
-    | BYEs automatisch weiterleiten
-    |--------------------------------------------------------------------------
-    */
-        $games = \App\Models\Game::where('tournament_id', $lucky->id)
-            ->where('round', 1)
-            ->get();
-
-        foreach ($games as $game) {
-
-            if ($game->player1_id && !$game->player2_id) {
-                app(\App\Services\Knockout\KnockoutAdvancer::class)
-                    ->handleWin($game, $game->player1_id);
-            }
-
-            if ($game->player2_id && !$game->player1_id) {
-                app(\App\Services\Knockout\KnockoutAdvancer::class)
-                    ->handleWin($game, $game->player2_id);
-            }
-        }
+        $lucky->update([
+            'status' => 'ko_running',
+        ]);
 
         /*
     |--------------------------------------------------------------------------
@@ -2851,6 +2685,7 @@ class TournamentController extends Controller
     */
         if (!$lucky->tvTournament) {
             \App\Models\TvTournament::create([
+                'user_id' => $lucky->user_id,
                 'tournament_id' => $lucky->id,
                 'position' => 999
             ]);
