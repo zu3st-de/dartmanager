@@ -36,21 +36,23 @@ Ein webbasiertes Turnierverwaltungssystem für Dart-Turniere mit Unterstützung 
 
 ### Voraussetzungen
 
-* PHP >= 8.1
+* PHP >= 8.2
 * Composer
-* Laravel
+* Node.js + npm
 * MySQL / MariaDB
 
 ### Setup
 
 ```bash
-git clone https://github.com/DEIN_USERNAME/dart-tournament-manager.git
+git clone https://github.com/zu3st-de/dartmanager.git
 
-cd dart-tournament-manager
+cd dartmanager
 
 composer install
+npm install
 cp .env.example .env
 php artisan key:generate
+php artisan storage:link
 ```
 
 ### Datenbank
@@ -59,10 +61,43 @@ php artisan key:generate
 php artisan migrate
 ```
 
-### Start
+### Development Start
 
 ```bash
-php artisan serve
+composer run dev
+```
+
+### Production / Deploy (Kurzfassung)
+
+```bash
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
+
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+Wenn du Queues nutzt, starte zusätzlich einen Worker (z. B. via Supervisor/Systemd):
+
+```bash
+php artisan queue:work --tries=3
+```
+
+---
+
+## ✅ Tests
+
+```bash
+php artisan test
+```
+
+Hinweis: Die Test-Suite nutzt eine eigene MySQL/MariaDB Datenbank (`dartmanager_test`, siehe `phpunit.xml`). Lege sie einmalig an:
+
+```sql
+CREATE DATABASE dartmanager_test;
 ```
 
 ---
