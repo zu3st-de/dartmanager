@@ -22,6 +22,10 @@ use App\Http\Controllers\PublicController;
 
 Route::get('/', fn() => view('welcome'));
 
+// Turnier-URLs laufen über public_id (z. B. ABC123), damit
+// statische Pfade wie /tournaments/archive nicht als {tournament} gematcht werden.
+Route::pattern('tournament', '[A-Z0-9]{6}');
+
 
 /*
 |--------------------------------------------------------------------------
