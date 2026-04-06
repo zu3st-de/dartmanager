@@ -2,9 +2,10 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\View;
 use App\Models\Tournament;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,10 +24,15 @@ class AppServiceProvider extends ServiceProvider
     {
         // Aktive Turniere für Navigation global verfügbar machen
         View::composer('layouts.navigation', function ($view) {
+            $activeTournaments = collect();
 
-            $activeTournaments = Tournament::active()
-                ->latest()
-                ->get();
+            if (Auth::check()) {
+                $activeTournaments = Tournament::query()
+                    ->where('user_id', Auth::id())
+                    ->active()
+                    ->latest()
+                    ->get();
+            }
 
             $view->with('activeTournaments', $activeTournaments);
         });

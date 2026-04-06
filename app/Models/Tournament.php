@@ -31,7 +31,12 @@ class Tournament extends Model
     }
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->whereIn('status', [
+            'draft',
+            'running',
+            'group_running',
+            'ko_running',
+        ]);
     }
     protected static function booted()
     {

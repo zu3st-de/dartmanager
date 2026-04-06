@@ -46,13 +46,15 @@ class TvController extends Controller
 
 
         // Bereits ausgewählte Turniere
-        $selected = TvTournament::whereNotNull('tournament_id')
+        $selected = TvTournament::where('user_id', auth()->id())
+            ->whereNotNull('tournament_id')
             ->pluck('tournament_id')
             ->toArray();
 
 
         // Rotationszeit
-        $rotationTime = TvTournament::orderBy('position')
+        $rotationTime = TvTournament::where('user_id', auth()->id())
+            ->orderBy('position')
             ->value('rotation_time') ?? 20;
 
 
@@ -84,7 +86,7 @@ class TvController extends Controller
 
 
         // Alte Einträge löschen
-        TvTournament::truncate();
+        TvTournament::where('user_id', auth()->id())->delete();
 
 
         $position = 1;
@@ -99,6 +101,7 @@ class TvController extends Controller
             }
 
             TvTournament::create([
+                'user_id' => auth()->id(),
                 'tournament_id' => $id,
                 'position' => $position,
                 'rotation_time' => $rotationTime,
@@ -117,6 +120,7 @@ class TvController extends Controller
 
         if (!$created) {
             TvTournament::create([
+                'user_id' => auth()->id(),
                 'tournament_id' => null,
                 'position' => 1,
                 'rotation_time' => $rotationTime,
@@ -137,6 +141,7 @@ class TvController extends Controller
     public function rotation()
     {
         $tournaments = TvTournament::with('tournament')
+            ->where('user_id', auth()->id())
             ->orderBy('position')
             ->get()
             ->pluck('tournament')

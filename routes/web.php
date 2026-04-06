@@ -214,6 +214,8 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/games/{game}/html', function (\App\Models\Game $game) {
 
+    abort_unless($game->tournament && $game->tournament->user_id === auth()->id(), 403);
+
     $game->load('player1', 'player2');
 
     if ($game->group_id) {
@@ -227,7 +229,7 @@ Route::get('/games/{game}/html', function (\App\Models\Game $game) {
         'game' => $game,
         'tournament' => $game->tournament
     ]);
-});
+})->middleware(['auth', 'throttle:120,1']);
 
 
 /*
@@ -238,6 +240,8 @@ Route::get('/games/{game}/html', function (\App\Models\Game $game) {
 
 Route::get('/groups/{group}/table', function (\App\Models\Group $group) {
 
+    abort_unless($group->tournament && $group->tournament->user_id === auth()->id(), 403);
+
     return view('tournaments.partials._group_table', [
         'group' => $group->load(
             'players',
@@ -246,9 +250,11 @@ Route::get('/groups/{group}/table', function (\App\Models\Group $group) {
         ),
         'tournament' => $group->tournament
     ]);
-});
+})->middleware(['auth', 'throttle:120,1']);
 
 Route::get('/groups/{group}/games', function (\App\Models\Group $group) {
+
+    abort_unless($group->tournament && $group->tournament->user_id === auth()->id(), 403);
 
     $group = \App\Models\Group::with([
         'games.player1',
@@ -259,7 +265,7 @@ Route::get('/groups/{group}/games', function (\App\Models\Group $group) {
         'group' => $group,
         'tournament' => $group->tournament
     ]);
-});
+})->middleware(['auth', 'throttle:120,1']);
 
 
 /*
@@ -270,13 +276,15 @@ Route::get('/groups/{group}/games', function (\App\Models\Group $group) {
 
 Route::get('/tournaments/{tournament}/bracket', function (\App\Models\Tournament $tournament) {
 
+    abort_unless($tournament->user_id === auth()->id(), 403);
+
     return view('tournaments.partials.knockout', [
         'tournament' => $tournament->load(
             'games.player1',
             'games.player2'
         )
     ]);
-})->name('tournaments.bracket');
+})->middleware(['auth', 'throttle:120,1'])->name('tournaments.bracket');
 
 
 /*

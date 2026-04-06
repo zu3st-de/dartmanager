@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\Services\Knockout\KnockoutGenerator;
 use App\Services\Knockout\KnockoutAdvancer;
-use App\Services\Group\GroupGeneratorGroupGenerator;
+use App\Services\Group\GroupGenerator;
 use App\Services\Group\GroupTableCalculator;
 
 /**
