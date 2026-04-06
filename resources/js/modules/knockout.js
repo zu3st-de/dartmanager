@@ -23,7 +23,7 @@ export function initKnockout() {
 
     const reloadingGames = new Set();
 
-    window.reloadGame = async function (gameId) {
+    window.reloadKoGame = async function (gameId) {
 
         try {
 
@@ -46,7 +46,7 @@ export function initKnockout() {
             }
 
         } catch (err) {
-            console.error('reloadGame error:', err);
+            console.error('reloadKoGame error:', err);
         }
     };
 
@@ -90,7 +90,7 @@ export function initKnockout() {
             const uniqueIds = [...new Set(response.reload)];
 
             for (const id of uniqueIds) {
-                await window.reloadGame(id);
+                await window.reloadKoGame(id);
             }
 
         } finally {

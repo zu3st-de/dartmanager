@@ -77,7 +77,7 @@ export function initGroups() {
             return;
         }
 
-        if (data.game_id) reloadGame(data.game_id);
+        if (data.game_id) window.reloadGroupGame(data.game_id);
         if (data.group_id) reloadGroup(data.group_id);
 
         // 👉 prüfen ob alles fertig
@@ -123,7 +123,7 @@ export function initGroups() {
 
         if (!data || !data.success) return;
 
-        reloadGame(data.game_id);
+        window.reloadGroupGame(data.game_id);
         reloadGroup(data.group_id);
 
         // 👉 prüfen ob alles fertig
@@ -157,7 +157,7 @@ export function initGroups() {
 
         if (!data || !data.success) return;
 
-        reloadGame(data.game_id);
+        window.reloadGroupGame(data.game_id);
         reloadGroup(data.group_id);
 
         // 👉 prüfen ob alles fertig
@@ -270,10 +270,10 @@ window.reloadGroup = function (groupId) {
 | 🔄 SINGLE GAME RELOAD
 |--------------------------------------------------------------------------
 */
-window.reloadGame = function (gameId) {
+window.reloadGroupGame = function (gameId) {
 
     if (!gameId) {
-        console.warn('reloadGame: gameId fehlt!');
+        console.warn('reloadGroupGame: gameId fehlt!');
         return;
     }
 
@@ -293,7 +293,7 @@ window.reloadGame = function (gameId) {
 
         })
         .catch(err => {
-            console.error('reloadGame ERROR:', err);
+            console.error('reloadGroupGame ERROR:', err);
         });
 };
 
