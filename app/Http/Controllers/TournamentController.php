@@ -89,13 +89,23 @@ class TournamentController extends Controller
         $tournaments = auth()->user()
             ->tournaments()
             ->whereNotIn('status', ['archived'])
+            ->with('parent')
             ->latest()
             ->get();
 
         $tvTournamentIds = TvTournament::query()
             ->where('user_id', auth()->id())
+            ->orderBy('position')
             ->pluck('tournament_id')
             ->all();
+
+        $tvRotationTime = (int) (TvTournament::query()
+            ->where('user_id', auth()->id())
+            ->orderBy('position')
+            ->value('rotation_time') ?? 20);
+
+        $selectedOrder = $this->sanitizeTvTournamentOrder($tournaments, $tvTournamentIds, $tvTournamentIds);
+        $orderedTournaments = $this->orderTournamentsForIndex($tournaments, $selectedOrder);
 
         /*
     |--------------------------------------------------------------
@@ -108,7 +118,50 @@ class TournamentController extends Controller
     |
     */
 
-        return view('tournaments.index', compact('tournaments', 'tvTournamentIds'));
+        return view('tournaments.index', compact(
+            'tournaments',
+            'tvTournamentIds',
+            'tvRotationTime',
+            'selectedOrder',
+            'orderedTournaments',
+        ));
+    }
+
+    private function sanitizeTvTournamentOrder($tournaments, array $selectedIds, array $preferredOrder = []): array
+    {
+        $selectedLookup = collect($selectedIds)
+            ->filter(fn ($id) => $tournaments->contains('id', $id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $preferred = collect($preferredOrder)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $selectedLookup->contains($id))
+            ->values();
+
+        return $preferred
+            ->concat($selectedLookup->diff($preferred))
+            ->values()
+            ->all();
+    }
+
+    private function orderTournamentsForIndex($tournaments, array $selectedOrder)
+    {
+        $selectedLookup = collect($selectedOrder)->flip();
+
+        $selectedTournaments = collect($selectedOrder)
+            ->map(fn ($id) => $tournaments->firstWhere('id', $id))
+            ->filter();
+
+        $unselectedTournaments = $tournaments
+            ->filter(fn ($tournament) => ! $selectedLookup->has($tournament->id))
+            ->sortBy('name')
+            ->values();
+
+        return $selectedTournaments
+            ->concat($unselectedTournaments)
+            ->values();
     }
 
     /*
@@ -222,6 +275,7 @@ class TournamentController extends Controller
             'mode' => 'required|in:ko,group_ko',
             'group_count' => 'nullable|integer|min:1',
             'group_advance_count' => 'nullable|integer|min:1',
+            'group_best_of' => 'nullable|integer|in:1,3,5,7',
         ]);
 
         /*
@@ -325,6 +379,10 @@ class TournamentController extends Controller
             'group_count' => $validated['group_count'] ?? null,
 
             'group_advance_count' => $validated['group_advance_count'] ?? null,
+
+            'group_best_of' => $validated['mode'] === 'group_ko'
+                ? (int) ($validated['group_best_of'] ?? 1)
+                : null,
 
             'has_lucky_loser' => $request->has('has_lucky_loser'),
 

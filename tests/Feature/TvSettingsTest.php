@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\TvTournament;
 use App\Models\User;
@@ -225,6 +226,162 @@ class TvSettingsTest extends TestCase
 
         $this->get('/tv')->assertRedirect('/login');
         $this->get("/tv/{$tournament->public_id}")->assertRedirect('/login');
+        $this->get('/tv/data')->assertRedirect('/login');
+    }
+
+    public function test_rotation_data_includes_newly_selected_tournaments(): void
+    {
+        $user = User::factory()->create();
+
+        $firstTournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Board 1',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        $secondTournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Board 2',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        TvTournament::create([
+            'user_id' => $user->id,
+            'tournament_id' => $firstTournament->id,
+            'position' => 1,
+            'rotation_time' => 20,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/tv/data')
+            ->assertOk()
+            ->assertJsonPath('rotationTime', 20)
+            ->assertJsonCount(1, 'tournaments')
+            ->assertJsonPath('tournaments.0.id', $firstTournament->id);
+
+        TvTournament::create([
+            'user_id' => $user->id,
+            'tournament_id' => $secondTournament->id,
+            'position' => 2,
+            'rotation_time' => 20,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/tv/data')
+            ->assertOk()
+            ->assertJsonCount(2, 'tournaments')
+            ->assertJsonPath('tournaments.1.id', $secondTournament->id);
+    }
+
+    public function test_tv_save_respects_manual_order_after_lucky_loser_was_added(): void
+    {
+        $user = User::factory()->create();
+
+        $firstMain = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Main A',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        $secondMain = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Main B',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        $firstLucky = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Main A - Lucky Loser',
+            'mode' => 'ko',
+            'status' => 'draft',
+            'parent_id' => $firstMain->id,
+            'type' => 'lucky_loser',
+        ]);
+
+        $secondLucky = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Main B - Lucky Loser',
+            'mode' => 'ko',
+            'status' => 'draft',
+            'parent_id' => $secondMain->id,
+            'type' => 'lucky_loser',
+        ]);
+
+        $this->actingAs($user)
+            ->from('/admin/tv')
+            ->post('/admin/tv', [
+                'tournaments' => [$firstMain->id, $secondLucky->id, $secondMain->id, $firstLucky->id],
+                'ordered_tournaments' => [$secondLucky->id, $firstMain->id, $secondMain->id, $firstLucky->id],
+                'rotation_time' => 20,
+            ])
+            ->assertRedirect('/admin/tv');
+
+        $orderedIds = TvTournament::where('user_id', $user->id)
+            ->orderBy('position')
+            ->pluck('tournament_id')
+            ->all();
+
+        $this->assertSame(
+            [$secondLucky->id, $firstMain->id, $secondMain->id, $firstLucky->id],
+            $orderedIds,
+        );
+    }
+
+    public function test_toggle_adds_lucky_loser_directly_after_selected_parent(): void
+    {
+        $user = User::factory()->create();
+
+        $main = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Main Cup',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        $lucky = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Main Cup - Lucky Loser',
+            'mode' => 'ko',
+            'status' => 'draft',
+            'parent_id' => $main->id,
+            'type' => 'lucky_loser',
+        ]);
+
+        $other = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Other Cup',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        TvTournament::create([
+            'user_id' => $user->id,
+            'tournament_id' => $main->id,
+            'position' => 1,
+            'rotation_time' => 20,
+        ]);
+
+        TvTournament::create([
+            'user_id' => $user->id,
+            'tournament_id' => $other->id,
+            'position' => 2,
+            'rotation_time' => 20,
+        ]);
+
+        $this->actingAs($user)
+            ->post("/tournaments/{$lucky->public_id}/tv-toggle")
+            ->assertRedirect();
+
+        $orderedIds = TvTournament::where('user_id', $user->id)
+            ->orderBy('position')
+            ->pluck('tournament_id')
+            ->all();
+
+        $this->assertSame([$main->id, $lucky->id, $other->id], $orderedIds);
     }
 
     public function test_lucky_loser_tv_entry_is_not_duplicated_when_regenerated(): void
@@ -267,5 +424,74 @@ class TvSettingsTest extends TestCase
             ->firstOrFail();
 
         $this->assertSame(1, TvTournament::where('tournament_id', $lucky->id)->count());
+    }
+
+    public function test_tv_bracket_hides_completed_early_rounds(): void
+    {
+        $user = User::factory()->create();
+
+        $tournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'TV Bracket',
+            'mode' => 'ko',
+            'status' => 'ko_running',
+        ]);
+
+        $winner = $tournament->players()->create(['name' => 'Gewinner']);
+        $loser = $tournament->players()->create(['name' => 'Verlierer']);
+
+        foreach (range(1, 16) as $position) {
+            Game::create([
+                'tournament_id' => $tournament->id,
+                'round' => 1,
+                'position' => $position,
+                'player1_id' => $winner->id,
+                'player2_id' => $loser->id,
+                'winner_id' => $winner->id,
+                'best_of' => 3,
+            ]);
+        }
+
+        foreach (range(1, 8) as $position) {
+            Game::create([
+                'tournament_id' => $tournament->id,
+                'round' => 2,
+                'position' => $position,
+                'player1_id' => $winner->id,
+                'player2_id' => $loser->id,
+                'winner_id' => $winner->id,
+                'best_of' => 3,
+            ]);
+        }
+
+        foreach (range(1, 4) as $position) {
+            Game::create([
+                'tournament_id' => $tournament->id,
+                'round' => 3,
+                'position' => $position,
+                'player1_id' => $winner->id,
+                'player2_id' => $loser->id,
+                'best_of' => 3,
+            ]);
+        }
+
+        foreach (range(1, 2) as $position) {
+            Game::create([
+                'tournament_id' => $tournament->id,
+                'round' => 4,
+                'position' => $position,
+                'best_of' => 3,
+            ]);
+        }
+
+        $controller = app(\App\Http\Controllers\TvController::class);
+        $method = (new ReflectionClass($controller))->getMethod('visibleTvRounds');
+        $method->setAccessible(true);
+
+        $rounds = $method->invoke($controller, $tournament);
+
+        $this->assertSame([1, 2], $rounds->keys()->all());
+        $this->assertCount(4, $rounds->get(1));
+        $this->assertCount(2, $rounds->get(2));
     }
 }
