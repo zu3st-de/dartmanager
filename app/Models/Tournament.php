@@ -3,10 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
-use App\Models\Player;
-use App\Models\Game;
-
 
 class Tournament extends Model
 {
@@ -29,6 +25,7 @@ class Tournament extends Model
     {
         return 'public_id';
     }
+
     public function scopeActive($query)
     {
         return $query->whereIn('status', [
@@ -38,6 +35,7 @@ class Tournament extends Model
             'ko_running',
         ]);
     }
+
     protected static function booted()
     {
         static::creating(function ($model) {
@@ -49,6 +47,7 @@ class Tournament extends Model
             $model->public_id = $id;
         });
     }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -63,10 +62,17 @@ class Tournament extends Model
     {
         return $this->hasMany(Game::class);
     }
+
     public function groups()
     {
         return $this->hasMany(Group::class);
     }
+
+    public function tvTournaments()
+    {
+        return $this->hasMany(TvTournament::class);
+    }
+
     /**
      * ================================================================
      * Child Turniere (z.B. Lucky Loser)
@@ -76,6 +82,7 @@ class Tournament extends Model
     {
         return $this->hasMany(Tournament::class, 'parent_id');
     }
+
     /**
      * ================================================================
      * Parent Turnier

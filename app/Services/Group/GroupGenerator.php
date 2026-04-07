@@ -2,8 +2,8 @@
 
 namespace App\Services\Group;
 
-use App\Models\Tournament;
 use App\Models\Game;
+use App\Models\Tournament;
 
 /**
  * ================================================================
@@ -50,7 +50,6 @@ class GroupGenerator
             ->get()
             ->values();
 
-
         /*
         |--------------------------------------------------------------------------
         | 2. Gruppen erstellen (A, B, C, ...)
@@ -63,11 +62,10 @@ class GroupGenerator
 
             $groups->push(
                 $tournament->groups()->create([
-                    'name' => chr(65 + $i)
+                    'name' => chr(65 + $i),
                 ])
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -85,10 +83,9 @@ class GroupGenerator
             $group = $groups[$index % $groupCount];
 
             $player->update([
-                'group_id' => $group->id
+                'group_id' => $group->id,
             ]);
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -113,20 +110,19 @@ class GroupGenerator
 
                 Game::create([
                     'tournament_id' => $tournament->id,
-                    'group_id'      => $group->id,
+                    'group_id' => $group->id,
 
-                    'player1_id'    => $gameData['player1_id'],
-                    'player2_id'    => $gameData['player2_id'],
+                    'player1_id' => $gameData['player1_id'],
+                    'player2_id' => $gameData['player2_id'],
 
-                    'round'         => $gameData['round'],
-                    'position'      => $position++,
+                    'round' => $gameData['round'],
+                    'position' => $position++,
 
-                    'best_of'       => $tournament->group_best_of ?? 3,
+                    'best_of' => $tournament->group_best_of ?? 3,
                 ]);
             }
         }
     }
-
 
     /**
      * ============================================================
@@ -163,7 +159,6 @@ class GroupGenerator
 
         $count = count($players);
 
-
         /*
         |--------------------------------------------------------------------------
         | 2. Freilos hinzufügen (bei ungerader Spielerzahl)
@@ -175,7 +170,6 @@ class GroupGenerator
             $count++;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | 3. Grundwerte berechnen
@@ -183,10 +177,9 @@ class GroupGenerator
         */
 
         $rounds = $count - 1;
-        $half   = $count / 2;
+        $half = $count / 2;
 
         $schedule = [];
-
 
         /*
         |--------------------------------------------------------------------------
@@ -207,10 +200,9 @@ class GroupGenerator
                 |--------------------------------------------------------------------------
                 */
 
-                if (!$p1 || !$p2) {
+                if (! $p1 || ! $p2) {
                     continue;
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -226,14 +218,12 @@ class GroupGenerator
                     $player2 = $p1;
                 }
 
-
                 $schedule[] = [
                     'round' => $round + 1,
                     'player1_id' => $player1->id,
                     'player2_id' => $player2->id,
                 ];
             }
-
 
             /*
             |--------------------------------------------------------------------------

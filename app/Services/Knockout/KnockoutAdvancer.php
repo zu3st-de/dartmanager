@@ -19,9 +19,7 @@ use App\Models\Tournament;
  * - Reload IDs zurückgeben
  *
  * Wird aufgerufen nach Ergebnis-Eingabe eines Spiels
- *
  */
-
 class KnockoutAdvancer
 {
     /**
@@ -34,7 +32,6 @@ class KnockoutAdvancer
      * Rückgabe:
      * - reload → Games neu laden
      * - fullReload → kompletter Reload nötig
-     *
      */
     public function handleWin(Game $game, int $winnerId): array
     {
@@ -50,15 +47,14 @@ class KnockoutAdvancer
         if ($this->isGroupMatch($game)) {
 
             $game->update([
-                'winner_id' => $winnerId
+                'winner_id' => $winnerId,
             ]);
 
             return [
                 'reload' => [],
-                'fullReload' => false
+                'fullReload' => false,
             ];
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -67,12 +63,11 @@ class KnockoutAdvancer
         */
 
         $game->update([
-            'winner_id' => $winnerId
+            'winner_id' => $winnerId,
         ]);
 
         $tournament = $game->tournament;
         $totalRounds = $this->getTotalRounds($tournament);
-
 
         /*
         |--------------------------------------------------------------------------
@@ -86,10 +81,9 @@ class KnockoutAdvancer
 
             return [
                 'reload' => [],
-                'fullReload' => $finished
+                'fullReload' => $finished,
             ];
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -97,18 +91,18 @@ class KnockoutAdvancer
         |--------------------------------------------------------------------------
         */
 
-        if ($game->round === $totalRounds && !$game->is_third_place) {
+        if ($game->round === $totalRounds && ! $game->is_third_place) {
 
-            if (!$tournament->has_third_place) {
+            if (! $tournament->has_third_place) {
 
                 $tournament->update([
                     'status' => 'finished',
-                    'winner_id' => $winnerId
+                    'winner_id' => $winnerId,
                 ]);
 
                 return [
                     'reload' => [],
-                    'fullReload' => true
+                    'fullReload' => true,
                 ];
             }
 
@@ -116,10 +110,9 @@ class KnockoutAdvancer
 
             return [
                 'reload' => [],
-                'fullReload' => $finished
+                'fullReload' => $finished,
             ];
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -132,7 +125,6 @@ class KnockoutAdvancer
         if ($nextGame) {
             $reload[] = $nextGame->id;
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -171,17 +163,15 @@ class KnockoutAdvancer
 
         return [
             'reload' => array_unique($reload),
-            'fullReload' => $finished
+            'fullReload' => $finished,
         ];
     }
-
 
     /**
      * ============================================================
      * TURNIER ABSCHLIESSEN
      * ============================================================
      */
-
     private function tryFinishTournament(Tournament $tournament): bool
     {
         /*
@@ -196,10 +186,9 @@ class KnockoutAdvancer
             ->orderByDesc('round')
             ->first();
 
-        if (!$finalGame || !$finalGame->winner_id) {
+        if (! $finalGame || ! $finalGame->winner_id) {
             return false;
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -207,15 +196,14 @@ class KnockoutAdvancer
         |--------------------------------------------------------------------------
         */
 
-        if (!$tournament->has_third_place) {
+        if (! $tournament->has_third_place) {
 
             $tournament->update([
-                'status' => 'finished'
+                'status' => 'finished',
             ]);
 
             return true;
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -227,10 +215,9 @@ class KnockoutAdvancer
             ->where('is_third_place', true)
             ->first();
 
-        if (!$thirdGame || !$thirdGame->winner_id) {
+        if (! $thirdGame || ! $thirdGame->winner_id) {
             return false;
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -239,19 +226,17 @@ class KnockoutAdvancer
         */
 
         $tournament->update([
-            'status' => 'finished'
+            'status' => 'finished',
         ]);
 
         return true;
     }
-
 
     /**
      * ============================================================
      * GEWINNER WEITERLEITEN
      * ============================================================
      */
-
     private function advanceWinner(Game $game, int $winnerId): ?Game
     {
         $tournament = $game->tournament;
@@ -264,7 +249,7 @@ class KnockoutAdvancer
         $nextRound = $game->round + 1;
         $nextPosition = (int) ceil($game->position / 2);
 
-        $winnerSource = 'W' . $game->position;
+        $winnerSource = 'W'.$game->position;
 
         $nextGame = Game::where('tournament_id', $game->tournament_id)
             ->where('round', $nextRound)
@@ -276,16 +261,16 @@ class KnockoutAdvancer
             })
             ->first();
 
-        if (!$nextGame) {
+        if (! $nextGame) {
             $nextGame = Game::where('tournament_id', $game->tournament_id)
-            ->where('round', $nextRound)
-            ->where('position', $nextPosition)
-            ->whereNull('group_id')
-            ->where('is_third_place', false)
-            ->first();
+                ->where('round', $nextRound)
+                ->where('position', $nextPosition)
+                ->whereNull('group_id')
+                ->where('is_third_place', false)
+                ->first();
         }
 
-        if (!$nextGame) {
+        if (! $nextGame) {
             return null;
         }
 
@@ -304,25 +289,21 @@ class KnockoutAdvancer
         return $nextGame;
     }
 
-
     /**
      * ============================================================
      * GRUPPENSPIEL ERKENNEN
      * ============================================================
      */
-
     private function isGroupMatch(Game $game): bool
     {
         return $game->group_id !== null;
     }
-
 
     /**
      * ============================================================
      * KO RUNDEN BERECHNEN
      * ============================================================
      */
-
     private function getTotalRounds(Tournament $tournament): int
     {
         return (int) Game::where('tournament_id', $tournament->id)

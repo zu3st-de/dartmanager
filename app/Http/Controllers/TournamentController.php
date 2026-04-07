@@ -2,18 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\TvTournament;
-use App\Models\Game;
-
+use App\Services\Group\GroupGenerator;
+use App\Services\Group\GroupTableCalculator;
+use App\Services\Knockout\KnockoutAdvancer;
+use App\Services\Knockout\KnockoutGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-
-use App\Services\Group\GroupGenerator;
-use App\Services\Group\GroupTableCalculator;
-use App\Services\Knockout\KnockoutGenerator;
-use App\Services\Knockout\KnockoutAdvancer;
 
 /**
  * ================================================================
@@ -41,7 +39,6 @@ use App\Services\Knockout\KnockoutAdvancer;
  *
  * ================================================================
  */
-
 class TournamentController extends Controller
 {
     /*
@@ -99,7 +96,6 @@ class TournamentController extends Controller
             ->where('user_id', auth()->id())
             ->pluck('tournament_id')
             ->all();
-
 
         /*
     |--------------------------------------------------------------
@@ -228,7 +224,6 @@ class TournamentController extends Controller
             'group_advance_count' => 'nullable|integer|min:1',
         ]);
 
-
         /*
     |--------------------------------------------------------------
     | Zusätzliche Regeln für group_ko Turniere
@@ -255,7 +250,6 @@ class TournamentController extends Controller
                 'group_advance_count' => 'required|integer|min:1',
             ]);
 
-
             /*
         |----------------------------------------------------------
         | Anzahl der KO Spieler berechnen
@@ -273,7 +267,6 @@ class TournamentController extends Controller
             $qualifiedCount =
                 $validated['group_count'] *
                 $validated['group_advance_count'];
-
 
             /*
         |----------------------------------------------------------
@@ -294,24 +287,21 @@ class TournamentController extends Controller
                 $qualifiedCount > 0 &&
                 ($qualifiedCount & ($qualifiedCount - 1)) === 0;
 
-
             /*
         |----------------------------------------------------------
         | Fehler zurückgeben wenn ungültig
         |----------------------------------------------------------
         */
 
-            if (!$isPowerOfTwo) {
+            if (! $isPowerOfTwo) {
 
                 return back()
                     ->withErrors([
-                        'group_advance_count' =>
-                        'Die Gesamtzahl der KO-Teilnehmer muss eine 2er-Potenz sein.'
+                        'group_advance_count' => 'Die Gesamtzahl der KO-Teilnehmer muss eine 2er-Potenz sein.',
                     ])
                     ->withInput();
             }
         }
-
 
         /*
     |--------------------------------------------------------------
@@ -342,7 +332,6 @@ class TournamentController extends Controller
 
             'status' => 'draft',
         ]);
-
 
         /*
     |--------------------------------------------------------------
@@ -402,7 +391,6 @@ class TournamentController extends Controller
 
         $this->authorizeTournament($tournament);
 
-
         /*
     |--------------------------------------------------------------------------
     | Benötigte Beziehungen (Relations) laden
@@ -435,7 +423,6 @@ class TournamentController extends Controller
             'games.player2',
         ]);
 
-
         /*
     |--------------------------------------------------------------------------
     | KO-Runden bestimmen
@@ -462,7 +449,6 @@ class TournamentController extends Controller
             ->orderBy('round')
             ->pluck('round');
 
-
         /*
     |--------------------------------------------------------------------------
     | Gruppenspiele abrufen
@@ -476,7 +462,6 @@ class TournamentController extends Controller
 
         $groupGames = $tournament->games()
             ->where('round', 0);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -498,7 +483,6 @@ class TournamentController extends Controller
             ->unique()
             ->first() ?? 1;
 
-
         /*
     |--------------------------------------------------------------------------
     | Prüfen ob Gruppenspiele bereits Ergebnisse haben
@@ -518,7 +502,6 @@ class TournamentController extends Controller
                 $q->whereNotNull('winner_id');
             })
             ->exists();
-
 
         /*
     |--------------------------------------------------------------------------
@@ -580,7 +563,6 @@ class TournamentController extends Controller
 
         $this->authorizeTournament($tournament);
 
-
         /*
     |--------------------------------------------------------------------------
     | Turnierstatus prüfen
@@ -595,7 +577,6 @@ class TournamentController extends Controller
             abort(400);
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | Eingabedaten validieren
@@ -606,7 +587,6 @@ class TournamentController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-
         /*
     |--------------------------------------------------------------------------
     | Spieler erstellen
@@ -616,7 +596,6 @@ class TournamentController extends Controller
         $player = $tournament->players()->create([
             'name' => $validated['name'],
         ]);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -635,7 +614,6 @@ class TournamentController extends Controller
                 'name' => $player->name,
             ]);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -679,7 +657,6 @@ class TournamentController extends Controller
 
         $this->authorizeTournament($tournament);
 
-
         /*
     |--------------------------------------------------------------------------
     | Turnierstatus prüfen
@@ -694,7 +671,6 @@ class TournamentController extends Controller
             );
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | Eingabe validieren
@@ -702,9 +678,8 @@ class TournamentController extends Controller
     */
 
         $request->validate([
-            'bulk_players' => 'required|string'
+            'bulk_players' => 'required|string',
         ]);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -715,7 +690,6 @@ class TournamentController extends Controller
         $lines = preg_split('/\r\n|\r|\n/', $request->bulk_players);
 
         $count = 0;
-
 
         /*
     |--------------------------------------------------------------------------
@@ -737,7 +711,6 @@ class TournamentController extends Controller
                 continue;
             }
 
-
             /*
         |--------------------------------------------------------------
         | Duplikate vermeiden
@@ -747,7 +720,6 @@ class TournamentController extends Controller
             if ($tournament->players()->where('name', $name)->exists()) {
                 continue;
             }
-
 
             /*
         |--------------------------------------------------------------
@@ -761,7 +733,6 @@ class TournamentController extends Controller
 
             $name = explode("\t", $name)[0];
 
-
             /*
         |--------------------------------------------------------------
         | Spieler erstellen
@@ -769,12 +740,11 @@ class TournamentController extends Controller
         */
 
             $tournament->players()->create([
-                'name' => $name
+                'name' => $name,
             ]);
 
             $count++;
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -830,7 +800,6 @@ class TournamentController extends Controller
             );
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | Auslosung innerhalb einer Datenbank-Transaktion
@@ -854,7 +823,6 @@ class TournamentController extends Controller
                 ->lockForUpdate()
                 ->get();
 
-
             /*
         |--------------------------------------------------------------
         | Seed Nummern vergeben
@@ -864,11 +832,10 @@ class TournamentController extends Controller
             foreach ($players as $index => $player) {
 
                 $player->update([
-                    'seed' => $index + 1
+                    'seed' => $index + 1,
                 ]);
             }
         });
-
 
         /*
     |--------------------------------------------------------------------------
@@ -933,7 +900,6 @@ class TournamentController extends Controller
 
         $this->authorizeTournament($tournament);
 
-
         /*
     |--------------------------------------------------------------------------
     | Turnierstatus prüfen
@@ -952,7 +918,6 @@ class TournamentController extends Controller
             );
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | Sicherstellen dass genügend Spieler vorhanden sind
@@ -969,7 +934,6 @@ class TournamentController extends Controller
                 'Mindestens zwei Spieler erforderlich.'
             );
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1021,7 +985,6 @@ class TournamentController extends Controller
                 app(KnockoutGenerator::class)
                     ->generatePlaceholderBracket($tournament, $size);
 
-
                 /*
             |--------------------------------------------------------------
             | Turnierstatus aktualisieren
@@ -1029,7 +992,7 @@ class TournamentController extends Controller
             */
 
                 $tournament->update([
-                    'status' => 'group_running'
+                    'status' => 'group_running',
                 ]);
             }
 
@@ -1063,7 +1026,6 @@ class TournamentController extends Controller
                 app(KnockoutGenerator::class)
                     ->generateDirectBracket($tournament, $players);
 
-
                 /*
     |--------------------------------------------------------------------------
     | 🔹 Turnierstatus setzen
@@ -1073,11 +1035,10 @@ class TournamentController extends Controller
     |
     */
                 $tournament->update([
-                    'status' => 'ko_running'
+                    'status' => 'ko_running',
                 ]);
             }
         });
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1087,7 +1048,7 @@ class TournamentController extends Controller
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'fullReload' => true
+                'fullReload' => true,
             ]);
         }
 
@@ -1107,7 +1068,6 @@ class TournamentController extends Controller
         $tournament = $game->tournament;
 
         $this->authorizeTournament($tournament);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1140,7 +1100,7 @@ class TournamentController extends Controller
             return back();
         }
 
-        if (!$game->player1_id || !$game->player2_id) {
+        if (! $game->player1_id || ! $game->player2_id) {
 
             $message = 'Ergebnisse können erst eingetragen werden, wenn beide Teilnehmer feststehen.';
 
@@ -1155,7 +1115,6 @@ class TournamentController extends Controller
                 'score' => $message,
             ]);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1174,14 +1133,12 @@ class TournamentController extends Controller
         $validated = $request->validate([
             'player1_score' => 'required|integer|min:0',
             'player2_score' => 'required|integer|min:0',
-            'winning_rest'  => 'nullable|integer|min:0|max:501',
+            'winning_rest' => 'nullable|integer|min:0|max:501',
         ]);
-
 
         $player1Score = (int) $validated['player1_score'];
         $player2Score = (int) $validated['player2_score'];
-        $winningRest  = $validated['winning_rest'] ?? null;
-
+        $winningRest = $validated['winning_rest'] ?? null;
 
         /*
     |--------------------------------------------------------------------------
@@ -1212,7 +1169,6 @@ class TournamentController extends Controller
             return back()->withErrors($e->getMessage());
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | Scores speichern
@@ -1228,11 +1184,10 @@ class TournamentController extends Controller
         $game->update([
             'player1_score' => $player1Score,
             'player2_score' => $player2Score,
-            'winning_rest'  => ($game->best_of == 1 && $game->group_id !== null)
+            'winning_rest' => ($game->best_of == 1 && $game->group_id !== null)
                 ? $winningRest
                 : null,
         ]);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1256,7 +1211,6 @@ class TournamentController extends Controller
             $winnerId = $game->player2_id;
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | KO-Engine ausführen
@@ -1277,9 +1231,8 @@ class TournamentController extends Controller
                 ->handleWin($game, $winnerId);
         }
 
-
         /*
-        
+
     |--------------------------------------------------------------------------
     | Spiel aktualisieren
     |--------------------------------------------------------------------------
@@ -1289,7 +1242,6 @@ class TournamentController extends Controller
     */
 
         $game->refresh();
-
 
         /*
 |--------------------------------------------------------------------------
@@ -1311,7 +1263,6 @@ class TournamentController extends Controller
                 ->with(['player1', 'player2'])
                 ->first();
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1342,7 +1293,6 @@ class TournamentController extends Controller
                 'next_player2_name' => optional($nextGame?->player2)->name,
             ]);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1404,7 +1354,6 @@ class TournamentController extends Controller
     */
         $this->authorizeTournament($tournament);
 
-
         /*
     |--------------------------------------------------------------------------
     | ✅ Validierung der Eingabedaten
@@ -1420,7 +1369,6 @@ class TournamentController extends Controller
             'best_of' => 'required|numeric|in:1,3,5,7',
         ]);
 
-
         /*
     |--------------------------------------------------------------------------
     | 💾 Best-of auf alle Gruppenspiele anwenden
@@ -1435,9 +1383,8 @@ class TournamentController extends Controller
         Game::where('tournament_id', $tournament->id)
             ->whereNotNull('group_id')
             ->update([
-                'best_of' => (int) $validated['best_of']
+                'best_of' => (int) $validated['best_of'],
             ]);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1450,7 +1397,7 @@ class TournamentController extends Controller
     |
     */
         return response()->json([
-            'success' => true
+            'success' => true,
         ]);
     }
 
@@ -1488,7 +1435,6 @@ class TournamentController extends Controller
 
         $this->authorizeTournament($tournament);
 
-
         /*
     |--------------------------------------------------------------------------
     | Prüfen ob noch Gruppenspiele offen sind
@@ -1504,7 +1450,6 @@ class TournamentController extends Controller
             ->whereNull('winner_id')
             ->exists();
 
-
         /*
     |--------------------------------------------------------------------------
     | Abbruch wenn noch Spiele offen sind
@@ -1518,7 +1463,6 @@ class TournamentController extends Controller
                 'Nicht alle Gruppenspiele sind abgeschlossen.'
             );
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1566,10 +1510,8 @@ class TournamentController extends Controller
      * - KO-Logik wird vollständig über KnockoutGenerator abgewickelt
      * - Keine direkte Manipulation von Games außerhalb der Engine
      *
-     * @param Tournament $tournament
      * @return RedirectResponse
      */
-
     public function startKo(Tournament $tournament)
     {
         /*
@@ -1582,7 +1524,6 @@ class TournamentController extends Controller
     */
 
         $this->authorizeTournament($tournament);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1619,9 +1560,8 @@ class TournamentController extends Controller
 
                 $tables[$group->name] =
                     app(GroupTableCalculator::class)
-                    ->calculate($group);
+                        ->calculate($group);
             }
-
 
             /*
         |--------------------------------------------------------------------------
@@ -1635,7 +1575,6 @@ class TournamentController extends Controller
             $games = $tournament->games()
                 ->whereNull('group_id')
                 ->get();
-
 
             /*
         |--------------------------------------------------------------------------
@@ -1665,7 +1604,6 @@ class TournamentController extends Controller
                     );
                 }
 
-
                 /*
             |--------------------------------------------------------------
             | Player 2 einsetzen
@@ -1683,7 +1621,6 @@ class TournamentController extends Controller
                 $game->save();
             }
 
-
             /*
         |--------------------------------------------------------------------------
         | Turnierstatus ändern
@@ -1691,7 +1628,7 @@ class TournamentController extends Controller
         */
 
             $tournament->update([
-                'status' => 'ko_running'
+                'status' => 'ko_running',
             ]);
 
             // 🔥 Lucky Loser Turnier erstellen
@@ -1699,7 +1636,6 @@ class TournamentController extends Controller
                 $this->createLuckyLoserTournament($tournament, $tables);
             }
         });
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1749,7 +1685,6 @@ class TournamentController extends Controller
             ->orderBy('name')
             ->get();
 
-
         /*
     |--------------------------------------------------------------------------
     | Anzahl der Aufsteiger pro Gruppe
@@ -1757,7 +1692,6 @@ class TournamentController extends Controller
     */
 
         $advance = $tournament->group_advance_count;
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1775,7 +1709,6 @@ class TournamentController extends Controller
         $qualified = collect();
         $remaining = collect();
 
-
         /*
     |--------------------------------------------------------------------------
     | Gruppentabellen berechnen
@@ -1786,7 +1719,6 @@ class TournamentController extends Controller
 
             $table = app(GroupTableCalculator::class)
                 ->calculate($group);
-
 
             foreach ($table as $index => $row) {
 
@@ -1816,7 +1748,6 @@ class TournamentController extends Controller
             }
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | Zielgröße der KO Phase bestimmen
@@ -1834,7 +1765,6 @@ class TournamentController extends Controller
 
         $targetSize = 2 ** ceil(log($total, 2));
 
-
         /*
     |--------------------------------------------------------------------------
     | Lucky Loser bestimmen
@@ -1848,13 +1778,12 @@ class TournamentController extends Controller
             $bestRemaining = $remaining
                 ->sortBy([
                     ['points', 'desc'],
-                    ['difference', 'desc']
+                    ['difference', 'desc'],
                 ])
                 ->take($needed);
 
             $qualified = $qualified->merge($bestRemaining);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -1904,10 +1833,10 @@ class TournamentController extends Controller
         $validator = Validator::make(
             $request->all(),
             [
-                'confirm_name' => ['required', 'in:' . $tournament->name],
+                'confirm_name' => ['required', 'in:'.$tournament->name],
             ],
             [
-                'confirm_name.in' => 'Turniername stimmt nicht überein'
+                'confirm_name.in' => 'Turniername stimmt nicht überein',
             ]
         );
 
@@ -1922,7 +1851,7 @@ class TournamentController extends Controller
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Turniername stimmt nicht überein'
+                    'error' => 'Turniername stimmt nicht überein',
                 ], 422);
             }
 
@@ -1954,7 +1883,7 @@ class TournamentController extends Controller
              * (Turnier ist wieder im Startzustand)
              */
             $tournament->update([
-                'status' => 'draft'
+                'status' => 'draft',
             ]);
         });
 
@@ -1967,7 +1896,7 @@ class TournamentController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'fullReload' => true
+                'fullReload' => true,
             ]);
         }
 
@@ -2022,7 +1951,6 @@ class TournamentController extends Controller
 
         $this->authorizeTournament($tournament);
 
-
         /*
     |--------------------------------------------------------------------------
     | Datenbank-Transaktion
@@ -2046,7 +1974,6 @@ class TournamentController extends Controller
         */
             $oldWinnerId = $game->winner_id;
 
-
             /*
         |--------------------------------------------------------------------------
         | Spiel zurücksetzen
@@ -2061,10 +1988,9 @@ class TournamentController extends Controller
             $game->update([
                 'player1_score' => null,
                 'player2_score' => null,
-                'winner_id'     => null,
-                'winning_rest'  => null,
+                'winner_id' => null,
+                'winning_rest' => null,
             ]);
-
 
             /*
         |--------------------------------------------------------------------------
@@ -2090,7 +2016,6 @@ class TournamentController extends Controller
                 $nextRound = $game->round + 1;
                 $nextPosition = (int) ceil($game->position / 2);
 
-
                 /*
             |--------------------------------------------------------------------------
             | Folge-Spiel laden
@@ -2100,7 +2025,6 @@ class TournamentController extends Controller
                     ->where('round', $nextRound)
                     ->where('position', $nextPosition)
                     ->first();
-
 
                 /*
             |--------------------------------------------------------------------------
@@ -2117,7 +2041,6 @@ class TournamentController extends Controller
                         $nextGame->player2_id = null;
                     }
 
-
                     /*
                 |--------------------------------------------------------------------------
                 | Falls ein Spieler fehlt → Ergebnis löschen
@@ -2126,12 +2049,12 @@ class TournamentController extends Controller
                 | Ein KO-Spiel ohne beide Spieler darf kein Ergebnis haben.
                 |
                 */
-                    if (!$nextGame->player1_id || !$nextGame->player2_id) {
+                    if (! $nextGame->player1_id || ! $nextGame->player2_id) {
 
                         $nextGame->player1_score = null;
                         $nextGame->player2_score = null;
-                        $nextGame->winner_id     = null;
-                        $nextGame->winning_rest  = null;
+                        $nextGame->winner_id = null;
+                        $nextGame->winning_rest = null;
                     }
 
                     $nextGame->save();
@@ -2163,17 +2086,16 @@ class TournamentController extends Controller
                 }
 
                 // Ergebnis zurücksetzen wenn nötig
-                if (!$thirdPlaceGame->player1_id || !$thirdPlaceGame->player2_id) {
+                if (! $thirdPlaceGame->player1_id || ! $thirdPlaceGame->player2_id) {
                     $thirdPlaceGame->player1_score = null;
                     $thirdPlaceGame->player2_score = null;
-                    $thirdPlaceGame->winner_id     = null;
-                    $thirdPlaceGame->winning_rest  = null;
+                    $thirdPlaceGame->winner_id = null;
+                    $thirdPlaceGame->winning_rest = null;
                 }
 
                 $thirdPlaceGame->save();
             }
         });
-
 
         /*
     |--------------------------------------------------------------------------
@@ -2192,7 +2114,6 @@ class TournamentController extends Controller
                 'game_id' => $game->id,
             ]);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -2242,14 +2163,12 @@ class TournamentController extends Controller
             );
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | Sicherheitsprüfung
     |--------------------------------------------------------------------------
     */
         $this->authorizeTournament($tournament);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -2268,10 +2187,10 @@ class TournamentController extends Controller
         $validator = Validator::make(
             $request->all(),
             [
-                'confirm_name' => ['required', 'in:' . $tournament->name],
+                'confirm_name' => ['required', 'in:'.$tournament->name],
             ],
             [
-                'confirm_name.in' => 'Turniername stimmt nicht überein'
+                'confirm_name.in' => 'Turniername stimmt nicht überein',
             ]
         );
 
@@ -2280,7 +2199,6 @@ class TournamentController extends Controller
                 ->withErrors($validator, 'resetKo') // 🔥 eigener Error-Bag
                 ->withInput();
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -2307,7 +2225,6 @@ class TournamentController extends Controller
                 ->whereNull('group_id')
                 ->get();
 
-
             /*
         |--------------------------------------------------------------------------
         | Spiele zurücksetzen
@@ -2330,7 +2247,6 @@ class TournamentController extends Controller
                 ]);
             }
 
-
             /*
         |--------------------------------------------------------------------------
         | Turnierstatus zurück auf Gruppenphase
@@ -2340,10 +2256,9 @@ class TournamentController extends Controller
         |
         */
             $tournament->update([
-                'status' => 'group_running'
+                'status' => 'group_running',
             ]);
         });
-
 
         /*
     |--------------------------------------------------------------------------
@@ -2401,7 +2316,6 @@ class TournamentController extends Controller
 
         $this->authorizeTournament($tournament);
 
-
         /*
     |--------------------------------------------------------------------------
     | Prüfen ob Turnier abgeschlossen ist
@@ -2415,7 +2329,6 @@ class TournamentController extends Controller
                 'Nur abgeschlossene Turniere können wieder geöffnet werden.'
             );
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -2437,7 +2350,6 @@ class TournamentController extends Controller
             $newStatus = 'group_running';
         }
 
-
         /*
     |--------------------------------------------------------------------------
     | Turnierstatus aktualisieren
@@ -2448,7 +2360,6 @@ class TournamentController extends Controller
             'status' => $newStatus,
         ]);
 
-
         /*
     |--------------------------------------------------------------------------
     | Turniersieger zurücksetzen
@@ -2456,9 +2367,8 @@ class TournamentController extends Controller
     */
 
         $tournament->update([
-            'winner_id' => null
+            'winner_id' => null,
         ]);
-
 
         /*
     |--------------------------------------------------------------------------
@@ -2561,7 +2471,7 @@ class TournamentController extends Controller
             $groupName = $match[1];
             $place = (int) $match[2] - 1;
 
-            if (!isset($tables[$groupName][$place])) {
+            if (! isset($tables[$groupName][$place])) {
                 return null;
             }
 
@@ -2595,8 +2505,6 @@ class TournamentController extends Controller
      * - Hauptturnier bleibt unverändert
      * - KO wird NICHT automatisch gestartet
      *
-     * @param Tournament $tournament
-     * @param array $tables
      * @return void
      */
     private function createLuckyLoserTournament(Tournament $tournament, array $tables)
@@ -2641,7 +2549,7 @@ class TournamentController extends Controller
                 'type' => 'lucky_loser',
             ],
             [
-                'name' => $tournament->name . ' - Lucky Loser',
+                'name' => $tournament->name.' - Lucky Loser',
                 'user_id' => $tournament->user_id,
                 'mode' => 'ko',
                 'status' => 'draft',
@@ -2689,11 +2597,11 @@ class TournamentController extends Controller
     | TV Eintrag nur einmal
     |--------------------------------------------------------------------------
     */
-        if (!$lucky->tvTournament) {
+        if (! $lucky->tvTournaments()->where('user_id', $lucky->user_id)->exists()) {
             \App\Models\TvTournament::create([
                 'user_id' => $lucky->user_id,
                 'tournament_id' => $lucky->id,
-                'position' => 999
+                'position' => 999,
             ]);
         }
     }
@@ -2708,8 +2616,12 @@ class TournamentController extends Controller
         // 🔒 Sicherheit!
         $this->authorizeTournament($tournament);
 
+        TvTournament::query()
+            ->where('tournament_id', $tournament->id)
+            ->delete();
+
         $tournament->update([
-            'status' => 'archived'
+            'status' => 'archived',
         ]);
 
         return redirect()
@@ -2732,7 +2644,6 @@ class TournamentController extends Controller
         return view('tournaments.archive', compact('tournaments'));
     }
 
-
     /*
 |--------------------------------------------------------------------------
 | RESTORE
@@ -2744,7 +2655,7 @@ class TournamentController extends Controller
         $this->authorizeTournament($tournament);
 
         $tournament->update([
-            'status' => 'finished' // oder 'draft' je nach gewünschtem Verhalten
+            'status' => 'finished', // oder 'draft' je nach gewünschtem Verhalten
         ]);
 
         return redirect()

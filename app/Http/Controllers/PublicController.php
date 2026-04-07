@@ -19,12 +19,9 @@ use App\Services\Group\GroupTableCalculator;
  * - Gruppenphase Darstellung
  * - KO Phase Darstellung
  * - Podium Anzeige
- *
  */
-
 class PublicController extends Controller
 {
-
     /*
     |--------------------------------------------------------------------------
     | FOLLOW VIEW
@@ -47,7 +44,6 @@ class PublicController extends Controller
 
         $tournament->load($this->relations());
 
-
         /*
         |--------------------------------------------------------------------------
         | View zurückgeben
@@ -55,17 +51,16 @@ class PublicController extends Controller
         */
 
         return view('public.follow', [
-            'tournament'        => $tournament,
-            'groupData'         => $this->buildGroupData($tournament),
-            'players'           => $this->getPlayers($tournament),
-            'koRounds'          => $this->buildKoRounds($tournament),
+            'tournament' => $tournament,
+            'groupData' => $this->buildGroupData($tournament),
+            'players' => $this->getPlayers($tournament),
+            'koRounds' => $this->buildKoRounds($tournament),
             'thirdPlaceMatches' => $this->getThirdPlaceMatches($tournament),
 
             // Podium Daten
             ...$this->resolvePodium($tournament),
         ]);
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -81,12 +76,11 @@ class PublicController extends Controller
         $tournament->load($this->relations());
 
         return response()->json([
-            'groups'            => $this->buildGroupData($tournament),
-            'ko'                => $this->buildKoRounds($tournament),
+            'groups' => $this->buildGroupData($tournament),
+            'ko' => $this->buildKoRounds($tournament),
             'tournament_status' => $tournament->status,
         ]);
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -106,10 +100,9 @@ class PublicController extends Controller
             'games.player1',
             'games.player2',
             'games.winner',
-            'players'
+            'players',
         ];
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -160,7 +153,6 @@ class PublicController extends Controller
         })->values()->toArray();
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | KO ROUNDS
@@ -177,11 +169,10 @@ class PublicController extends Controller
             ->where('is_third_place', false)
             ->sortBy([
                 ['round', 'asc'],
-                ['position', 'asc']
+                ['position', 'asc'],
             ])
             ->groupBy('round');
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -194,7 +185,6 @@ class PublicController extends Controller
         return $tournament->games
             ->where('is_third_place', true);
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -213,7 +203,6 @@ class PublicController extends Controller
         $secondPlace = null;
         $thirdPlace = null;
 
-
         /*
         |--------------------------------------------------------------------------
         | Finale ermitteln
@@ -224,7 +213,6 @@ class PublicController extends Controller
             ->whereNull('group_id')
             ->sortByDesc('round')
             ->first();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -242,7 +230,6 @@ class PublicController extends Controller
                 : $final->player1;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | Spiel um Platz 3
@@ -255,14 +242,12 @@ class PublicController extends Controller
             $thirdPlace = $thirdPlaceMatch->winner;
         }
 
-
         return compact(
             'winner',
             'secondPlace',
             'thirdPlace'
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -282,7 +267,6 @@ class PublicController extends Controller
             ->unique('name')
             ->values();
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -324,11 +308,11 @@ class PublicController extends Controller
             'Luke Littler',
             'Gian van Veen',
 
-        ])->map(fn($name) => (object) [
+        ])->map(fn ($name) => (object) [
 
-            'id' => 'pro_' . md5($name),
+            'id' => 'pro_'.md5($name),
             'name' => $name,
-            'is_pro' => true
+            'is_pro' => true,
 
         ]);
     }

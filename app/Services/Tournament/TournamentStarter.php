@@ -26,7 +26,7 @@ class TournamentStarter
                     ->generatePlaceholderBracket($tournament, $size);
 
                 $tournament->update([
-                    'status' => 'group_running'
+                    'status' => 'group_running',
                 ]);
             } else {
 
@@ -36,7 +36,7 @@ class TournamentStarter
                     ->generateDirectBracket($tournament, $players);
 
                 $tournament->update([
-                    'status' => 'ko_running'
+                    'status' => 'ko_running',
                 ]);
             }
         });

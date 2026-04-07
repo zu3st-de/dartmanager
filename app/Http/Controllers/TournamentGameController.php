@@ -3,14 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Game;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Services\Knockout\KnockoutAdvancer;
 use App\Services\Knockout\KnockoutProgressionService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TournamentGameController extends Controller
 {
-
     /*
     |--------------------------------------------------------------------------
     | Spiel Score speichern
@@ -32,7 +31,6 @@ class TournamentGameController extends Controller
     {
         $tournament = $game->tournament;
 
-
         /*
         |--------------------------------------------------------------------------
         | Prüfen ob Spiel bereits entschieden
@@ -47,13 +45,12 @@ class TournamentGameController extends Controller
             ]);
         }
 
-        if (!$game->player1_id || !$game->player2_id) {
+        if (! $game->player1_id || ! $game->player2_id) {
             return response()->json([
                 'success' => false,
                 'error' => 'Ergebnisse können erst eingetragen werden, wenn beide Teilnehmer feststehen.',
             ], 422);
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -64,14 +61,12 @@ class TournamentGameController extends Controller
         $validated = $request->validate([
             'player1_score' => 'required|integer|min:0',
             'player2_score' => 'required|integer|min:0',
-            'winning_rest'  => 'nullable|integer|min:0|max:501',
+            'winning_rest' => 'nullable|integer|min:0|max:501',
         ]);
-
 
         $player1Score = $validated['player1_score'];
         $player2Score = $validated['player2_score'];
-        $winningRest  = $validated['winning_rest'] ?? null;
-
+        $winningRest = $validated['winning_rest'] ?? null;
 
         /*
         |--------------------------------------------------------------------------
@@ -93,7 +88,6 @@ class TournamentGameController extends Controller
             ], 422);
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | Scores speichern
@@ -103,9 +97,8 @@ class TournamentGameController extends Controller
         $game->update([
             'player1_score' => $player1Score,
             'player2_score' => $player2Score,
-            'winning_rest'  => $winningRest,
+            'winning_rest' => $winningRest,
         ]);
-
 
         /*
         |--------------------------------------------------------------------------
@@ -125,7 +118,6 @@ class TournamentGameController extends Controller
             $winnerId = $game->player2_id;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | Gewinner verarbeiten (KO Logik)
@@ -143,7 +135,6 @@ class TournamentGameController extends Controller
             $fullReload = $result['fullReload'] ?? false;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | Spiel neu laden
@@ -151,7 +142,6 @@ class TournamentGameController extends Controller
         */
 
         $game->refresh();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -164,7 +154,6 @@ class TournamentGameController extends Controller
             $reload ?? []
         ));
 
-
         /*
         |--------------------------------------------------------------------------
         | JSON Response
@@ -176,10 +165,9 @@ class TournamentGameController extends Controller
             'game_id' => $game->id,
             'group_id' => $game->group_id,
             'reload' => $reload,
-            'fullReload' => $fullReload
+            'fullReload' => $fullReload,
         ]);
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -198,7 +186,7 @@ class TournamentGameController extends Controller
 
     public function resetGame(Game $game)
     {
-        if (!$game->canBeReset()) {
+        if (! $game->canBeReset()) {
             abort(403);
         }
         $reloadIds = [];
@@ -215,9 +203,8 @@ class TournamentGameController extends Controller
                 'player1_score' => null,
                 'player2_score' => null,
                 'winner_id' => null,
-                'winning_rest' => null
+                'winning_rest' => null,
             ]);
-
 
             /*
             |--------------------------------------------------------------------------
@@ -225,11 +212,10 @@ class TournamentGameController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $service = new KnockoutProgressionService();
+            $service = new KnockoutProgressionService;
 
             $reloadIds = $service->clearFromGame($game);
         });
-
 
         /*
         |--------------------------------------------------------------------------
@@ -241,9 +227,10 @@ class TournamentGameController extends Controller
             'success' => true,
             'game_id' => $game->id,
             'group_id' => $game->group_id,
-            'reload' => array_unique(array_merge([$game->id], $reloadIds))
+            'reload' => array_unique(array_merge([$game->id], $reloadIds)),
         ]);
     }
+
     /*
     |--------------------------------------------------------------------------
     | Spiel Reload (AJAX)
@@ -252,9 +239,10 @@ class TournamentGameController extends Controller
     public function reloadGame(Game $game)
     {
         return view('tournaments.partials._group_game_single', [
-            'game' => $game
+            'game' => $game,
         ])->render();
     }
+
     /*
     |--------------------------------------------------------------------------
     | Nächstes Spiel finden
@@ -265,7 +253,7 @@ class TournamentGameController extends Controller
         $next = Game::where('previous_game_id', $game->id)->first();
 
         return response()->json([
-            'next_game_id' => $next?->id
+            'next_game_id' => $next?->id,
         ]);
     }
 }

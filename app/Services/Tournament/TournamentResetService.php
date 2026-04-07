@@ -15,12 +15,9 @@ use Illuminate\Support\Facades\DB;
  * - Komplettes Turnier resetten
  * - KO Phase resetten
  * - Turnier wieder öffnen
- *
  */
-
 class TournamentResetService
 {
-
     /*
     |--------------------------------------------------------------------------
     | Komplettes Turnier zurücksetzen
@@ -39,11 +36,10 @@ class TournamentResetService
 
             // Status zurücksetzen
             $tournament->update([
-                'status' => 'draft'
+                'status' => 'draft',
             ]);
         });
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -71,11 +67,10 @@ class TournamentResetService
             }
 
             $tournament->update([
-                'status' => 'group_running'
+                'status' => 'group_running',
             ]);
         });
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -93,7 +88,7 @@ class TournamentResetService
 
         $tournament->update([
             'status' => $status,
-            'winner_id' => null
+            'winner_id' => null,
         ]);
     }
 }

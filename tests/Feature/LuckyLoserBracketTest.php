@@ -31,7 +31,7 @@ class LuckyLoserBracketTest extends TestCase
 
         foreach (range(1, 22) as $index) {
             $players->push($tournament->players()->create([
-                'name' => 'Spieler ' . $index,
+                'name' => 'Spieler '.$index,
                 'seed' => $index,
             ]));
         }

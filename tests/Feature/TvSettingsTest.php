@@ -6,6 +6,7 @@ use App\Models\Tournament;
 use App\Models\TvTournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use ReflectionClass;
 use Tests\TestCase;
 
 class TvSettingsTest extends TestCase
@@ -179,5 +180,92 @@ class TvSettingsTest extends TestCase
         $this->assertDatabaseMissing('tv_tournaments', [
             'tournament_id' => $tournament->id,
         ]);
+    }
+
+    public function test_archiving_a_tournament_removes_it_from_tv_rotation(): void
+    {
+        $user = User::factory()->create();
+
+        $tournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'TV Archiv Test',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        TvTournament::create([
+            'user_id' => $user->id,
+            'tournament_id' => $tournament->id,
+            'position' => 1,
+            'rotation_time' => 20,
+        ]);
+
+        $this->actingAs($user)
+            ->post("/tournaments/{$tournament->public_id}/archive")
+            ->assertRedirect('/tournaments');
+
+        $this->assertDatabaseHas('tournaments', [
+            'id' => $tournament->id,
+            'status' => 'archived',
+        ]);
+
+        $this->assertDatabaseMissing('tv_tournaments', [
+            'tournament_id' => $tournament->id,
+        ]);
+    }
+
+    public function test_tv_routes_require_authentication(): void
+    {
+        $tournament = Tournament::create([
+            'user_id' => User::factory()->create()->id,
+            'name' => 'TV Cup',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        $this->get('/tv')->assertRedirect('/login');
+        $this->get("/tv/{$tournament->public_id}")->assertRedirect('/login');
+    }
+
+    public function test_lucky_loser_tv_entry_is_not_duplicated_when_regenerated(): void
+    {
+        $user = User::factory()->create();
+
+        $tournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Hauptturnier',
+            'mode' => 'group_ko',
+            'status' => 'group_running',
+            'group_count' => 2,
+            'group_advance_count' => 1,
+            'has_lucky_loser' => true,
+        ]);
+
+        $players = collect();
+
+        foreach (range(1, 6) as $index) {
+            $players->push($tournament->players()->create([
+                'name' => 'Spieler '.$index,
+                'seed' => $index,
+            ]));
+        }
+
+        $tables = [
+            'A' => [['player' => ['id' => $players[0]->id]]],
+            'B' => [['player' => ['id' => $players[1]->id]]],
+        ];
+
+        $controller = app(\App\Http\Controllers\TournamentController::class);
+        $method = (new ReflectionClass($controller))->getMethod('createLuckyLoserTournament');
+        $method->setAccessible(true);
+
+        $method->invoke($controller, $tournament, $tables);
+        $method->invoke($controller, $tournament, $tables);
+
+        $lucky = Tournament::where('parent_id', $tournament->id)
+            ->where('type', 'lucky_loser')
+            ->firstOrFail();
+
+        $this->assertSame(1, TvTournament::where('tournament_id', $lucky->id)->count());
     }
 }

@@ -10,17 +10,24 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tv_tournaments', function (Blueprint $table) {
-            if (!Schema::hasColumn('tv_tournaments', 'user_id')) {
-                $table->foreignId('user_id')->nullable()->after('id')->constrained()->nullOnDelete();
+            if (! Schema::hasColumn('tv_tournaments', 'user_id')) {
+                $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             }
         });
 
         DB::table('tv_tournaments')
+            ->select('tv_tournaments.id', 'tournaments.user_id')
             ->leftJoin('tournaments', 'tv_tournaments.tournament_id', '=', 'tournaments.id')
             ->whereNull('tv_tournaments.user_id')
-            ->update([
-                'tv_tournaments.user_id' => DB::raw('tournaments.user_id'),
-            ]);
+            ->orderBy('tv_tournaments.id')
+            ->get()
+            ->each(function ($entry): void {
+                DB::table('tv_tournaments')
+                    ->where('id', $entry->id)
+                    ->update([
+                        'user_id' => $entry->user_id,
+                    ]);
+            });
     }
 
     public function down(): void

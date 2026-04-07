@@ -2,8 +2,8 @@
 
 namespace App\Services\Knockout;
 
-use App\Models\Tournament;
 use App\Models\Game;
+use App\Models\Tournament;
 
 /**
  * ================================================================
@@ -70,18 +70,17 @@ class KnockoutGenerator
             ->get();
 
         foreach ($games as $game) {
-            if ($game->player1_id && !$game->player2_id) {
+            if ($game->player1_id && ! $game->player2_id) {
                 app(KnockoutAdvancer::class)
                     ->handleWin($game, $game->player1_id);
             }
 
-            if ($game->player2_id && !$game->player1_id) {
+            if ($game->player2_id && ! $game->player1_id) {
                 app(KnockoutAdvancer::class)
                     ->handleWin($game, $game->player2_id);
             }
         }
     }
-
 
     /**
      * ============================================================
@@ -153,7 +152,6 @@ class KnockoutGenerator
             ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | 2. Weitere KO-Runden (Winner-Bracket)
@@ -174,8 +172,8 @@ class KnockoutGenerator
                     'player2_id' => null,
 
                     // Gewinner der vorherigen Spiele
-                    'player1_source' => 'W' . ($position * 2 - 1),
-                    'player2_source' => 'W' . ($position * 2),
+                    'player1_source' => 'W'.($position * 2 - 1),
+                    'player2_source' => 'W'.($position * 2),
 
                     'round' => $round,
                     'position' => $position,
@@ -186,7 +184,6 @@ class KnockoutGenerator
                 ]);
             }
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -216,7 +213,6 @@ class KnockoutGenerator
             ]);
         }
     }
-
 
     /**
      * ============================================================
@@ -248,11 +244,10 @@ class KnockoutGenerator
 
             $game->update([
                 'player1_id' => $player1?->id,
-                'player2_id' => $player2?->id
+                'player2_id' => $player2?->id,
             ]);
         }
     }
-
 
     /**
      * ============================================================
@@ -285,13 +280,12 @@ class KnockoutGenerator
         for ($place = 1; $place <= $advance; $place++) {
 
             foreach ($groups as $group) {
-                $seeds[] = $group . $place;
+                $seeds[] = $group.$place;
             }
         }
 
         return $this->buildBracketOrder($seeds);
     }
-
 
     /**
      * ============================================================
@@ -321,7 +315,6 @@ class KnockoutGenerator
 
         return $ordered;
     }
-
 
     /**
      * ============================================================
@@ -353,5 +346,4 @@ class KnockoutGenerator
 
         return $positions;
     }
-
 }

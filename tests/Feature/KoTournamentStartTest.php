@@ -24,7 +24,7 @@ class KoTournamentStartTest extends TestCase
 
         foreach (range(1, 6) as $seed) {
             $tournament->players()->create([
-                'name' => 'Spieler ' . $seed,
+                'name' => 'Spieler '.$seed,
                 'seed' => $seed,
             ]);
         }

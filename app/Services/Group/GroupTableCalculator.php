@@ -99,7 +99,6 @@ class GroupTableCalculator
                     $losses++;
                 }
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | DIFFERENZBERECHNUNG
@@ -146,7 +145,6 @@ class GroupTableCalculator
                 'difference' => $difference,
             ];
         }
-
 
         /*
         |--------------------------------------------------------------------------

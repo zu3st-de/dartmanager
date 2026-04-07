@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tv_tournaments', function (Blueprint $table) {
-            if (!Schema::hasColumn('tv_tournaments', 'rotation_time')) {
+            if (! Schema::hasColumn('tv_tournaments', 'rotation_time')) {
                 $table->integer('rotation_time')->default(20);
             }
         });

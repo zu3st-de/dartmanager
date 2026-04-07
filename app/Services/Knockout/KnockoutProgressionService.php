@@ -37,7 +37,7 @@ class KnockoutProgressionService
                     'player1_score' => null,
                     'player2_score' => null,
                     'winner_id' => null,
-                    'winning_rest' => null
+                    'winning_rest' => null,
                 ]);
 
                 $reload = array_merge(
@@ -48,7 +48,6 @@ class KnockoutProgressionService
 
             $nextGame->save();
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -77,7 +76,7 @@ class KnockoutProgressionService
                     'player1_score' => null,
                     'player2_score' => null,
                     'winner_id' => null,
-                    'winning_rest' => null
+                    'winning_rest' => null,
                 ]);
             }
 

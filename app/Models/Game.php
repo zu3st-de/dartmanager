@@ -73,7 +73,7 @@ class Game extends Model
         // Keine negativen Werte
         if ($player1Score < 0 || $player2Score < 0) {
             throw ValidationException::withMessages([
-                'score' => 'Negative Werte sind nicht erlaubt.'
+                'score' => 'Negative Werte sind nicht erlaubt.',
             ]);
         }
 
@@ -84,7 +84,7 @@ class Game extends Model
 
             if ($player1Score + $player2Score !== 1) {
                 throw ValidationException::withMessages([
-                    'score' => 'Bei Best of 1 muss das Ergebnis 1:0 oder 0:1 sein.'
+                    'score' => 'Bei Best of 1 muss das Ergebnis 1:0 oder 0:1 sein.',
                 ]);
             }
 
@@ -93,13 +93,13 @@ class Game extends Model
 
                 if ($winningRest === null) {
                     throw ValidationException::withMessages([
-                        'winning_rest' => 'Restpunkte müssen bei Best of 1 angegeben werden.'
+                        'winning_rest' => 'Restpunkte müssen bei Best of 1 angegeben werden.',
                     ]);
                 }
 
                 if ($winningRest < 0 || $winningRest > 501) {
                     throw ValidationException::withMessages([
-                        'winning_rest' => 'Restpunkte müssen zwischen 0 und 501 liegen.'
+                        'winning_rest' => 'Restpunkte müssen zwischen 0 und 501 liegen.',
                     ]);
                 }
             }
@@ -113,19 +113,19 @@ class Game extends Model
 
         if ($player1Score > $needed || $player2Score > $needed) {
             throw ValidationException::withMessages([
-                'score' => 'Zu viele Gewinnsätze für dieses Best Of.'
+                'score' => 'Zu viele Gewinnsätze für dieses Best Of.',
             ]);
         }
 
         if ($player1Score === $player2Score) {
             throw ValidationException::withMessages([
-                'score' => 'Unentschieden ist nicht erlaubt.'
+                'score' => 'Unentschieden ist nicht erlaubt.',
             ]);
         }
 
         if ($player1Score !== $needed && $player2Score !== $needed) {
             throw ValidationException::withMessages([
-                'score' => 'Niemand hat die benötigten Gewinnsätze erreicht.'
+                'score' => 'Niemand hat die benötigten Gewinnsätze erreicht.',
             ]);
         }
     }
@@ -145,7 +145,7 @@ class Game extends Model
         }
 
         // KO Spiele nur in KO Phase
-        if (!$this->group_id && $status === 'ko_running') {
+        if (! $this->group_id && $status === 'ko_running') {
             return true;
         }
 

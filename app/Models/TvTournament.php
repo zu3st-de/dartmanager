@@ -10,7 +10,7 @@ class TvTournament extends Model
         'user_id',
         'tournament_id',
         'position',
-        'rotation_time'
+        'rotation_time',
     ];
 
     public function user()

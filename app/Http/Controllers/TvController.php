@@ -5,129 +5,80 @@ namespace App\Http\Controllers;
 use App\Models\Tournament;
 use App\Models\TvTournament;
 use App\Services\Group\GroupTableCalculator;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-
-/**
- * ================================================================
- * TvController
- * ================================================================
- *
- * Verantwortlich für:
- *
- * - Verwaltung des TV-Modus
- * - Auswahl der angezeigten Turniere
- * - Rotation (Anzeige mehrerer Turniere)
- * - Darstellung eines einzelnen Turniers im TV-Modus
- *
- * 🔒 SECURITY:
- * Benutzer dürfen nur ihre eigenen Turniere sehen
- *
- */
+use Illuminate\Http\Request;
 
 class TvController extends Controller
 {
-
-    /*
-    |--------------------------------------------------------------------------
-    | 📺 TV-Verwaltung anzeigen
-    |--------------------------------------------------------------------------
-    |
-    | Zeigt alle Turniere des Users zur Auswahl für TV
-    |
-    */
-
     public function manage()
     {
-        // Alle Turniere des Users
         $tournaments = auth()->user()
             ->tournaments()
             ->where('status', '!=', 'archived')
+            ->with('parent')
             ->orderBy('name')
             ->get();
 
+        $selected = $this->currentSelectedTournamentIds();
+        $selectedOrder = $this->sanitizeTournamentOrder($selected, $selected);
+        $orderedTournaments = $this->orderTournamentsForManageView($tournaments, $selectedOrder);
 
-        // Bereits ausgewählte Turniere
-        $selected = TvTournament::where('user_id', auth()->id())
-            ->whereNotNull('tournament_id')
-            ->pluck('tournament_id')
-            ->toArray();
-
-
-        // Rotationszeit
         $rotationTime = TvTournament::where('user_id', auth()->id())
             ->orderBy('position')
             ->value('rotation_time') ?? 20;
 
-
         return view('admin.tv', compact(
-            'tournaments',
+            'orderedTournaments',
             'selected',
-            'rotationTime'
+            'selectedOrder',
+            'rotationTime',
         ));
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 💾 TV Auswahl speichern
-    |--------------------------------------------------------------------------
-    */
 
     public function save(Request $request)
     {
         $validated = $request->validate([
             'tournaments' => ['nullable', 'array'],
             'tournaments.*' => ['integer'],
+            'ordered_tournaments' => ['nullable', 'array'],
+            'ordered_tournaments.*' => ['integer'],
             'rotation_time' => ['nullable', 'integer', 'min:3', 'max:45'],
         ]);
 
-        // Nur eigene Turniere erlauben
-        $userTournamentIds = auth()->user()
+        $tournaments = auth()->user()
             ->tournaments()
             ->where('status', '!=', 'archived')
+            ->with('parent')
+            ->get();
+
+        $userTournamentIds = $tournaments
             ->pluck('id')
             ->toArray();
 
-
-        // Rotationszeit
         $rotationTime = (int) ($validated['rotation_time'] ?? 20);
+        $selected = collect($validated['tournaments'] ?? [])
+            ->filter(fn ($id) => in_array($id, $userTournamentIds))
+            ->values()
+            ->all();
 
+        $preferredOrder = collect($validated['ordered_tournaments'] ?? [])
+            ->filter(fn ($id) => in_array($id, $userTournamentIds))
+            ->values()
+            ->all();
 
-        // Alte Einträge löschen
-        TvTournament::where('user_id', auth()->id())->delete();
+        $orderedIds = $this->sanitizeTournamentOrder($selected, $preferredOrder);
 
+        $this->persistRotation($orderedIds, $rotationTime);
 
-        $position = 1;
-
-
-        foreach ($validated['tournaments'] ?? [] as $id) {
-
-            // Sicherheit: nur eigene Turniere
-            if (!in_array($id, $userTournamentIds)) {
-                continue;
-            }
-
-            TvTournament::create([
-                'user_id' => auth()->id(),
-                'tournament_id' => $id,
-                'position' => $position,
-                'rotation_time' => $rotationTime,
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'TV Reihenfolge aktualisiert.',
+                'ordered_tournaments' => $orderedIds,
             ]);
-
-            $position++;
         }
-
 
         return back()->with('success', 'TV Programm gespeichert');
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | TV Turnier direkt umschalten
-    |--------------------------------------------------------------------------
-    */
 
     public function toggle(Tournament $tournament)
     {
@@ -136,7 +87,7 @@ class TvController extends Controller
         }
 
         if ($tournament->status === 'archived') {
-            return back()->with('error', 'Archivierte Turniere können nicht im TV angezeigt werden.');
+            return back()->with('error', 'Archivierte Turniere koennen nicht im TV angezeigt werden.');
         }
 
         $existingEntry = TvTournament::where('user_id', auth()->id())
@@ -144,25 +95,26 @@ class TvController extends Controller
             ->first();
 
         if ($existingEntry) {
-            $existingEntry->delete();
+            $selectedIds = $this->currentSelectedTournamentIds();
+            $orderedIds = array_values(array_filter($selectedIds, fn ($id) => (int) $id !== (int) $tournament->id));
+            $rotationTime = $this->currentRotationTime();
+            $this->persistRotation($orderedIds, $rotationTime);
 
             return back()->with('success', 'Turnier aus dem TV entfernt.');
         }
 
-        $nextPosition = (int) TvTournament::where('user_id', auth()->id())->max('position') + 1;
+        $tournaments = auth()->user()
+            ->tournaments()
+            ->where('status', '!=', 'archived')
+            ->with('parent')
+            ->get();
 
-        $rotationTime = TvTournament::where('user_id', auth()->id())
-            ->orderBy('position')
-            ->value('rotation_time') ?? 20;
+        $rotationTime = $this->currentRotationTime();
+        $selectedIds = $this->currentSelectedTournamentIds();
+        $orderedIds = $this->insertTournamentWithDefaultOrder($tournaments, $selectedIds, $tournament->id);
+        $this->persistRotation($orderedIds, $rotationTime);
 
-        TvTournament::create([
-            'user_id' => auth()->id(),
-            'tournament_id' => $tournament->id,
-            'position' => max(1, $nextPosition),
-            'rotation_time' => $rotationTime,
-        ]);
-
-        return back()->with('success', 'Turnier zum TV hinzugefügt.');
+        return back()->with('success', 'Turnier zum TV hinzugefuegt.');
     }
 
     public function updateRotationTime(Request $request)
@@ -177,62 +129,62 @@ class TvController extends Controller
             ]);
 
         if ($updated === 0) {
-            return back()->with('error', 'Lege zuerst ein Turnier für das TV fest.');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Lege zuerst ein Turnier fuer das TV fest.',
+                ], 422);
+            }
+
+            return back()->with('error', 'Lege zuerst ein Turnier fuer das TV fest.');
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Rotationszeit aktualisiert.',
+                'rotation_time' => (int) $validated['rotation_time'],
+            ]);
         }
 
         return back()->with('success', 'Rotationszeit aktualisiert.');
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | 🔄 TV Rotation
-    |--------------------------------------------------------------------------
-    */
-
     public function rotation()
     {
-        $config = $this->getRotationConfig();
+        $tournaments = $this->rotationTournaments();
 
-        return view('tv.rotation', [
-            'initialConfig' => $config,
+        return view('tv.rotation', compact('tournaments'));
+    }
+
+    public function rotationData(): JsonResponse
+    {
+        $tournaments = $this->rotationTournaments();
+        $rotationTime = TvTournament::where('user_id', auth()->id())
+            ->orderBy('position')
+            ->value('rotation_time') ?? 20;
+
+        return response()->json([
+            'rotationTime' => (int) $rotationTime,
+            'tournaments' => $tournaments->map(function (Tournament $tournament) {
+                return [
+                    'id' => $tournament->id,
+                    'name' => $tournament->name,
+                    'public_id' => $tournament->public_id,
+                    'parent_id' => $tournament->parent_id,
+                    'follow_url' => url('/follow/'.$tournament->public_id),
+                    'tv_url' => url('/tv/'.$tournament->public_id),
+                ];
+            })->values(),
+            'overviewHtml' => view('tv.partials.overview', [
+                'tournaments' => $tournaments,
+            ])->render(),
         ]);
     }
 
-    public function rotationConfig(): JsonResponse
-    {
-        return response()
-            ->json($this->getRotationConfig())
-            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', '0');
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 📺 Einzelnes Turnier anzeigen
-    |--------------------------------------------------------------------------
-    */
-
     public function show(Tournament $tournament)
     {
-        /*
-        |--------------------------------------------------------------------------
-        | 🔒 Sicherheitsprüfung
-        |--------------------------------------------------------------------------
-        */
-
         if ($tournament->user_id !== auth()->id()) {
             abort(403);
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 🔄 Relationen laden
-        |--------------------------------------------------------------------------
-        */
 
         $tournament->load([
             'groups.players',
@@ -240,59 +192,35 @@ class TvController extends Controller
             'groups.games.player2',
             'games.player1',
             'games.player2',
-            'games.winner'
+            'games.winner',
         ]);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | 📝 Draft Phase
-        |--------------------------------------------------------------------------
-        */
 
         if ($tournament->status === 'draft') {
             return view('tv.draft', compact('tournament'));
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | 👥 Gruppenphase
-        |--------------------------------------------------------------------------
-        */
-
         if ($tournament->status === 'group_running') {
-
             $groupData = [];
 
             foreach ($tournament->groups as $group) {
-
-                // Tabelle berechnen
                 $table = app(GroupTableCalculator::class)
                     ->calculate($group);
 
-
-                // Letztes Spiel
                 $lastGame = $group->games
                     ->whereNotNull('winner_id')
                     ->sortByDesc('updated_at')
                     ->first();
 
-
-                // Aktuelles Spiel
                 $currentGame = $group->games
                     ->whereNull('winner_id')
                     ->sortBy('id')
                     ->first();
 
-
-                // Nächstes Spiel
                 $nextGame = $group->games
                     ->whereNull('winner_id')
                     ->sortBy('id')
                     ->skip(1)
                     ->first();
-
 
                 $groupData[] = [
                     'group' => $group,
@@ -305,112 +233,229 @@ class TvController extends Controller
 
             return view('tv.show', compact(
                 'tournament',
-                'groupData'
+                'groupData',
             ));
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | 🏆 KO Phase
-        |--------------------------------------------------------------------------
-        */
-
         if (in_array($tournament->status, ['ko_running', 'finished'])) {
-
-            $koGames = $tournament->games
-                ->whereNull('group_id')
-                ->sortBy([
-                    ['round', 'asc'],
-                    ['position', 'asc']
-                ]);
-
-            $mainRounds = $koGames
-                ->where('is_third_place', false)
-                ->groupBy('round');
-
-            $totalRounds = (int) $mainRounds->keys()->max();
-
-            $visibleMainRounds = $mainRounds->filter(function ($games, $round) use ($totalRounds) {
-                $roundsLeft = $totalRounds - (int) $round + 1;
-                $isEarlyRound = in_array($roundsLeft, [4, 5], true);
-                $isFinished = $games->every(fn($game) => $game->winner_id !== null);
-
-                return !$isEarlyRound || !$isFinished;
-            });
-
-            $rounds = $visibleMainRounds->map(function ($games) {
-                return $games->sortBy('position')->values();
-            });
-
-            $thirdPlaceGame = $koGames->firstWhere('is_third_place', true);
-
-            if ($thirdPlaceGame) {
-                $rounds[$thirdPlaceGame->round] = ($rounds[$thirdPlaceGame->round] ?? collect())
-                    ->push($thirdPlaceGame)
-                    ->sortBy('position')
-                    ->values();
-            }
+            $rounds = $this->visibleTvRounds($tournament);
 
             return view('tv.bracket', compact(
                 'tournament',
-                'rounds'
+                'rounds',
             ));
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ❌ Fallback
-        |--------------------------------------------------------------------------
-        */
 
         abort(404);
     }
 
-    private function getRotationConfig(): array
+    private function rotationTournaments()
     {
-        $tournaments = TvTournament::with('tournament')
+        return TvTournament::with('tournament')
             ->where('user_id', auth()->id())
             ->orderBy('position')
             ->get()
             ->pluck('tournament')
             ->filter(function ($tournament) {
                 return $tournament
-                    && $tournament->user_id === auth()->id();
+                    && $tournament->user_id === auth()->id()
+                    && $tournament->status !== 'archived';
             })
             ->values();
+    }
 
-        $rotationTime = TvTournament::where('user_id', auth()->id())
+    private function currentSelectedTournamentIds(): array
+    {
+        return TvTournament::where('user_id', auth()->id())
             ->orderBy('position')
-            ->value('rotation_time') ?? 20;
+            ->pluck('tournament_id')
+            ->filter()
+            ->values()
+            ->all();
+    }
 
-        return [
-            'rotation_time' => (int) $rotationTime,
-            'pages' => collect([[
-                'type' => 'overview',
-            ]])->concat(
-                $tournaments->map(function ($tournament) {
-                    return [
-                        'type' => 'tournament',
-                        'id' => $tournament->id,
-                        'public_id' => $tournament->public_id,
-                        'url' => route('tv.tournament', $tournament),
-                    ];
-                })
-            )->values()->all(),
-            'overview_html' => view('tv.partials.overview', [
-                'tournaments' => $tournaments,
-            ])->render(),
-            'signature' => md5(json_encode([
-                'rotation_time' => (int) $rotationTime,
-                'tournaments' => $tournaments->map(fn($tournament) => [
-                    'id' => $tournament->id,
-                    'public_id' => $tournament->public_id,
-                    'parent_id' => $tournament->parent_id,
-                    'name' => $tournament->name,
-                ])->values()->all(),
-            ])),
-        ];
+    private function currentRotationTime(): int
+    {
+        return (int) (TvTournament::where('user_id', auth()->id())
+            ->orderBy('position')
+            ->value('rotation_time') ?? 20);
+    }
+
+    private function persistRotation(array $orderedIds, int $rotationTime): void
+    {
+        TvTournament::where('user_id', auth()->id())->delete();
+
+        foreach (array_values($orderedIds) as $index => $id) {
+            TvTournament::create([
+                'user_id' => auth()->id(),
+                'tournament_id' => $id,
+                'position' => $index + 1,
+                'rotation_time' => $rotationTime,
+            ]);
+        }
+    }
+
+    private function sanitizeTournamentOrder(array $selectedIds, array $preferredOrder = []): array
+    {
+        $selectedLookup = collect($selectedIds)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $preferred = collect($preferredOrder)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $selectedLookup->contains($id))
+            ->values();
+
+        return $preferred
+            ->concat($selectedLookup->diff($preferred))
+            ->values()
+            ->all();
+    }
+
+    private function insertTournamentWithDefaultOrder($tournaments, array $selectedIds, int $newTournamentId): array
+    {
+        $tournamentMap = $tournaments->keyBy('id');
+        $current = collect($selectedIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $tournamentMap->has($id))
+            ->unique()
+            ->values();
+
+        if ($current->contains($newTournamentId)) {
+            return $current->all();
+        }
+
+        $tournament = $tournamentMap->get($newTournamentId);
+
+        if (! $tournament) {
+            return $current->all();
+        }
+
+        if ($tournament->parent_id && $current->contains((int) $tournament->parent_id)) {
+            $parentIndex = $current->search((int) $tournament->parent_id);
+
+            if ($parentIndex !== false) {
+                $insertIndex = $parentIndex + 1;
+
+                while (isset($current[$insertIndex])) {
+                    $candidate = $tournamentMap->get($current[$insertIndex]);
+
+                    if (! $candidate || (int) $candidate->parent_id !== (int) $tournament->parent_id) {
+                        break;
+                    }
+
+                    $insertIndex++;
+                }
+
+                $current->splice($insertIndex, 0, [$newTournamentId]);
+
+                return $current->values()->all();
+            }
+        }
+
+        if (! $tournament->parent_id) {
+            $childIds = $tournaments
+                ->filter(fn ($candidate) => (int) $candidate->parent_id === (int) $tournament->id)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id);
+
+            $childPositions = $current
+                ->map(fn ($id, $index) => $childIds->contains((int) $id) ? $index : null)
+                ->filter(fn ($index) => $index !== null)
+                ->values();
+
+            if ($childPositions->isNotEmpty()) {
+                $insertIndex = (int) $childPositions->first();
+                $current->splice($insertIndex, 0, [$newTournamentId]);
+
+                return $current->values()->all();
+            }
+        }
+
+        $current->push($newTournamentId);
+
+        return $current->values()->all();
+    }
+
+    private function orderTournamentsForManageView($tournaments, array $selectedOrder)
+    {
+        $selectedLookup = collect($selectedOrder)
+            ->flip();
+
+        $selectedTournaments = collect($selectedOrder)
+            ->map(fn ($id) => $tournaments->firstWhere('id', $id))
+            ->filter();
+
+        $unselectedTournaments = $tournaments
+            ->filter(fn ($tournament) => ! $selectedLookup->has($tournament->id))
+            ->sortBy('name')
+            ->values();
+
+        return $selectedTournaments
+            ->concat($unselectedTournaments)
+            ->values();
+    }
+
+    private function visibleTvRounds(Tournament $tournament)
+    {
+        $koGames = $tournament->games
+            ->whereNull('group_id')
+            ->sortBy([
+                ['round', 'asc'],
+                ['position', 'asc'],
+            ]);
+
+        $mainRounds = $koGames
+            ->where('is_third_place', false)
+            ->groupBy('round')
+            ->sortKeys();
+
+        if ($mainRounds->isEmpty()) {
+            return collect();
+        }
+
+        $thirdPlaceRounds = $koGames
+            ->where('is_third_place', true)
+            ->groupBy('round')
+            ->sortKeys();
+
+        $firstVisibleRound = $mainRounds->keys()->first();
+
+        foreach ($mainRounds as $roundNumber => $games) {
+            if ($games->contains(fn ($game) => $game->winner_id === null)) {
+                $firstVisibleRound = $roundNumber;
+                break;
+            }
+        }
+
+        if ($mainRounds->every(fn ($games) => $games->every(fn ($game) => $game->winner_id !== null))) {
+            $firstVisibleRound = max(
+                (int) $mainRounds->keys()->last() - 2,
+                (int) $mainRounds->keys()->first(),
+            );
+        }
+
+        $visibleRounds = $mainRounds
+            ->filter(fn ($_, $roundNumber) => (int) $roundNumber >= (int) $firstVisibleRound)
+            ->values();
+
+        $reindexedRounds = collect();
+
+        foreach ($visibleRounds as $index => $games) {
+            $reindexedRounds->put($index + 1, $games->values());
+        }
+
+        $thirdPlaceGames = $thirdPlaceRounds->flatten(1)->values();
+
+        if ($thirdPlaceGames->isNotEmpty() && $reindexedRounds->isNotEmpty()) {
+            $lastVisibleRound = $reindexedRounds->keys()->last();
+            $reindexedRounds->put(
+                $lastVisibleRound,
+                $reindexedRounds->get($lastVisibleRound)->concat($thirdPlaceGames)->values(),
+            );
+        }
+
+        return $reindexedRounds;
     }
 }

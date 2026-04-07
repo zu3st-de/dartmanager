@@ -2,16 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tournament;
 use App\Models\Game;
-
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-
-use App\Services\Knockout\KnockoutGenerator;
-use App\Services\Knockout\KnockoutAdvancer;
+use App\Models\Tournament;
 use App\Services\Group\GroupGenerator;
 use App\Services\Group\GroupTableCalculator;
+use App\Services\Knockout\KnockoutGenerator;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * ================================================================
@@ -28,12 +25,9 @@ use App\Services\Group\GroupTableCalculator;
  * - Turnier starten
  * - Gruppenphase beenden
  * - KO Phase starten
- *
  */
-
 class TournamentAdminController extends Controller
 {
-
     /*
     |--------------------------------------------------------------------------
     | TURNIER ÜBERSICHT
@@ -51,7 +45,6 @@ class TournamentAdminController extends Controller
         return view('tournaments.index', compact('tournaments'));
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | TURNIER ERSTELLEN
@@ -63,7 +56,6 @@ class TournamentAdminController extends Controller
         return view('tournaments.create');
     }
 
-
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -72,7 +64,6 @@ class TournamentAdminController extends Controller
             'group_count' => 'nullable|integer|min:1',
             'group_advance_count' => 'nullable|integer|min:1',
         ]);
-
 
         /*
         |--------------------------------------------------------------------------
@@ -95,17 +86,15 @@ class TournamentAdminController extends Controller
                 $qualifiedCount > 0 &&
                 ($qualifiedCount & ($qualifiedCount - 1)) === 0;
 
-            if (!$isPowerOfTwo) {
+            if (! $isPowerOfTwo) {
 
                 return back()
                     ->withErrors([
-                        'group_advance_count' =>
-                        'Die Gesamtzahl der KO-Teilnehmer muss eine 2er-Potenz sein.'
+                        'group_advance_count' => 'Die Gesamtzahl der KO-Teilnehmer muss eine 2er-Potenz sein.',
                     ])
                     ->withInput();
             }
         }
-
 
         auth()->user()->tournaments()->create([
 
@@ -120,12 +109,10 @@ class TournamentAdminController extends Controller
             'status' => 'draft',
         ]);
 
-
         return redirect()
             ->route('tournaments.index')
             ->with('success', 'Turnier erstellt');
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -176,7 +163,6 @@ class TournamentAdminController extends Controller
         );
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | TURNIER STARTEN
@@ -194,7 +180,6 @@ class TournamentAdminController extends Controller
         if ($tournament->players()->count() < 2) {
             return back()->with('error', 'Mindestens zwei Spieler erforderlich');
         }
-
 
         DB::transaction(function () use ($tournament) {
 
@@ -217,7 +202,7 @@ class TournamentAdminController extends Controller
                     ->generatePlaceholderBracket($tournament, $size);
 
                 $tournament->update([
-                    'status' => 'group_running'
+                    'status' => 'group_running',
                 ]);
             }
 
@@ -233,17 +218,15 @@ class TournamentAdminController extends Controller
                     ->generateDirectBracket($tournament, $players);
 
                 $tournament->update([
-                    'status' => 'ko_running'
+                    'status' => 'ko_running',
                 ]);
             }
         });
-
 
         return redirect()
             ->route('tournaments.show', $tournament)
             ->with('success', 'Turnier gestartet');
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -270,7 +253,6 @@ class TournamentAdminController extends Controller
         return $this->startKo($tournament);
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | KO STARTEN
@@ -289,7 +271,7 @@ class TournamentAdminController extends Controller
 
                 $tables[$group->name] =
                     app(GroupTableCalculator::class)
-                    ->calculate($group);
+                        ->calculate($group);
             }
 
             $games = $tournament->games()
@@ -318,16 +300,14 @@ class TournamentAdminController extends Controller
             }
 
             $tournament->update([
-                'status' => 'ko_running'
+                'status' => 'ko_running',
             ]);
         });
-
 
         return redirect()
             ->route('tournaments.show', $tournament)
             ->with('success', 'KO gestartet');
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -342,7 +322,6 @@ class TournamentAdminController extends Controller
         }
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | GROUP SOURCE
@@ -354,13 +333,14 @@ class TournamentAdminController extends Controller
         if (preg_match('/([A-Z])(\d+)/', $source, $match)) {
 
             $group = $match[1];
-            $place = (int)$match[2] - 1;
+            $place = (int) $match[2] - 1;
 
             return $tables[$group][$place]['player']->id ?? null;
         }
 
         return null;
     }
+
     /*
     |--------------------------------------------------------------------------
     | Turnier wieder öffnen
@@ -373,13 +353,14 @@ class TournamentAdminController extends Controller
     {
         $tournament->update([
             'status' => 'ko_running',
-            'winner_id' => null
+            'winner_id' => null,
         ]);
 
         return redirect()
             ->route('tournaments.show', $tournament)
             ->with('success', 'Turnier wurde wieder geöffnet.');
     }
+
     /*
     |--------------------------------------------------------------------------
     | Turnier komplett zurücksetzen
@@ -395,7 +376,7 @@ class TournamentAdminController extends Controller
             ->update([
                 'player1_score' => null,
                 'player2_score' => null,
-                'winner_id' => null
+                'winner_id' => null,
             ]);
 
         // KO Slots leeren
@@ -403,18 +384,18 @@ class TournamentAdminController extends Controller
             ->whereNull('group_id')
             ->update([
                 'player1_id' => null,
-                'player2_id' => null
+                'player2_id' => null,
             ]);
 
         // Turnier Status zurücksetzen
         $tournament->update([
             'status' => 'group_running',
-            'winner_id' => null
+            'winner_id' => null,
         ]);
 
         return response()->json([
             'success' => true,
-            'fullReload' => true
+            'fullReload' => true,
         ]);
     }
 }

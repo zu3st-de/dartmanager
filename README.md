@@ -1,196 +1,105 @@
-# 🎯 Dart Tournament Manager
+# Dart Tournament Manager
 
-Ein webbasiertes Turnierverwaltungssystem für Dart-Turniere mit Unterstützung für Gruppen- und KO-Phasen.
+Ein webbasiertes Turnierverwaltungssystem fuer Dart-Turniere mit Gruppenphase, KO-Baum, TV-Ansicht und oeffentlicher Follow-Seite.
 
----
+## Features
 
-## ✨ Features
+- Spielerverwaltung einzeln oder per Bulk-Import
+- KO-Turniere und Gruppenphase mit anschliessender KO-Runde
+- Automatische Bracket-Generierung inklusive BYEs
+- Optionales Spiel um Platz 3
+- Optionales Lucky-Loser-Turnier als eigenes Second-Chance-Bracket
+- Live-Ergebniserfassung ohne kompletten Seiten-Reload
+- TV-Rotation fuer mehrere aktive Turniere
+- Oeffentliche Follow-Seiten mit QR-Code-Links
 
-* 🧍 Spielerverwaltung (manuell & Bulk-Import)
-* 🎲 Zufällige Auslosung (Seeding)
-* 👥 Gruppenphase mit automatischer Tabellenberechnung
-* 🏆 KO-System mit automatischer Weitergabe der Gewinner
-* 🥉 Optionales Spiel um Platz 3
-* ⚡ Live-Ergebnis-Eingabe (AJAX)
-* 🔄 Automatische Aktualisierung von Folge-Spielen
-* 🧠 Intelligente Turnierlogik (BYEs, KO-Baum, etc.)
+## Technischer Stack
 
----
+- PHP 8.2+
+- Laravel 12
+- MariaDB oder MySQL fuer den Produktivbetrieb
+- Vite fuer Frontend-Builds
+- Tailwind CSS und Alpine.js im internen Backend
 
-## 🧱 Unterstützte Turniermodi
-
-### 1. KO-Turnier
-
-* Direktes Ausscheidungssystem
-* Automatische BYE-Verteilung bei ungerader Spielerzahl
-
-### 2. Gruppen + KO
-
-* Gruppenphase (Round Robin)
-* Frei definierbare Anzahl Gruppen & Aufsteiger
-* Automatischer Übergang in KO-Phase
-
----
-
-## ⚙️ Installation
-
-### Voraussetzungen
-
-* PHP >= 8.2
-* Composer
-* Node.js + npm
-* MySQL / MariaDB
-
-### Setup
+## Setup
 
 ```bash
-git clone https://github.com/zu3st-de/dartmanager.git
-
-cd dartmanager
-
 composer install
 npm install
 cp .env.example .env
 php artisan key:generate
+php artisan migrate
 php artisan storage:link
 ```
 
-### Datenbank
-
-```bash
-php artisan migrate
-```
-
-### Development Start
+Danach kann die lokale Entwicklungsumgebung mit folgendem Kommando gestartet werden:
 
 ```bash
 composer run dev
 ```
 
-### Production / Deploy (Kurzfassung)
+## Konfiguration
 
-```bash
-composer install --no-dev --optimize-autoloader
-npm ci
-npm run build
+Wichtige Umgebungsvariablen in [.env.example](/c:/Users/langen/dartmanager/.env.example):
 
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-```
+- `REGISTRATION_ENABLED`: Schaltet die Benutzerregistrierung ein oder aus
+- `AUTOSIM_ENABLED`: Aktiviert die Auto-Simulation im Frontend
+- `DB_*`: Datenbankverbindung fuer den lokalen oder produktiven Betrieb
+- `APP_LOCALE` und `APP_FAKER_LOCALE`: Standardsprache und Faker-Locale
 
-Wenn du Queues nutzt, starte zusätzlich einen Worker (z. B. via Supervisor/Systemd):
+## Nutzung
 
-```bash
-php artisan queue:work --tries=3
-```
+1. Turnier anlegen
+2. Spieler erfassen
+3. Auslosung starten
+4. Gruppen- oder KO-Phase starten
+5. Ergebnisse erfassen
+6. Optional TV-Ansicht oder Follow-Link freigeben
 
----
+## Routen und Ansichten
 
-## ✅ Tests
+Die wichtigsten Oberflaechen sind:
+
+- `/tournaments`: interne Verwaltung aller aktiven Turniere
+- `/tournaments/archive`: Archivansicht
+- `/admin/tv`: Auswahl der Turniere fuer die TV-Rotation
+- `/tv`: geschuetzte TV-Rotation fuer angemeldete Benutzer
+- `/tv/{public_id}`: geschuetzte Einzelansicht eines TV-Turniers
+- `/follow/{public_id}`: oeffentliche Follow-Seite fuer Zuschauer
+- `/follow/{public_id}/data`: JSON-Polling-Endpoint fuer die Follow-Seite
+
+## Wichtige Dateien
+
+Ein paar Dateien waren bisher funktional vorhanden, aber kaum oder gar nicht dokumentiert:
+
+- [app/Http/Controllers/PublicController.php](/c:/Users/langen/dartmanager/app/Http/Controllers/PublicController.php): baut die oeffentliche Follow-Ansicht und deren Live-Daten auf
+- [app/Http/Controllers/TvController.php](/c:/Users/langen/dartmanager/app/Http/Controllers/TvController.php): verwaltet TV-Auswahl, Rotation und Einzelansichten
+- [resources/views/tv/rotation.blade.php](/c:/Users/langen/dartmanager/resources/views/tv/rotation.blade.php): rotiert zwischen Overview und TV-Frames
+- [resources/views/public/follow.blade.php](/c:/Users/langen/dartmanager/resources/views/public/follow.blade.php): Zuschaueransicht mit Polling, Filter und Sieg-Overlay
+- [public/css/follow.css](/c:/Users/langen/dartmanager/public/css/follow.css): zusaetzliche Styles fuer die oeffentliche Follow-Seite
+- [app/Services/Knockout/KnockoutGenerator.php](/c:/Users/langen/dartmanager/app/Services/Knockout/KnockoutGenerator.php): erzeugt Brackets und verarbeitet BYEs
+- [app/Services/Tournament/TournamentResetService.php](/c:/Users/langen/dartmanager/app/Services/Tournament/TournamentResetService.php): setzt Turniere in einen konsistenten Ausgangszustand zurueck
+
+Die ungenutzte Datei `public/js/follow.js` wurde entfernt, weil die Follow-Logik inzwischen direkt in der Blade-Ansicht gepflegt wird.
+
+## Tests
+
+Die Tests laufen jetzt ohne vorausgesetzte lokale MariaDB-Testdatenbank mit SQLite im Speicher:
 
 ```bash
 php artisan test
 ```
 
-Hinweis: Die Test-Suite nutzt eine eigene MySQL/MariaDB Datenbank (`dartmanager_test`, siehe `phpunit.xml`). Lege sie einmalig an:
+Falls du produktionsnahe Datenbanktests gegen MariaDB fahren willst, kannst du die Werte in [phpunit.xml](/c:/Users/langen/dartmanager/phpunit.xml) oder in einer separaten Test-Env wieder anpassen.
 
-```sql
-CREATE DATABASE dartmanager_test;
+## Build
+
+```bash
+npm run build
 ```
 
----
+Hinweis: In stark eingeschraenkten Sandbox- oder CI-Umgebungen kann `vite build` an Prozessrechten fuer `esbuild` scheitern. Im normalen lokalen Setup sollte der Build regulär laufen.
 
-## 🕹️ Nutzung
+## Lizenz
 
-1. Turnier erstellen
-2. Spieler hinzufügen (einzeln oder per Liste)
-3. Auslosung durchführen
-4. Turnier starten
-5. Ergebnisse eintragen
-6. KO-Phase automatisch generieren
-
----
-
-## 🧠 Architektur (vereinfacht)
-
-### Controller
-
-* Verarbeitet HTTP Requests
-* Übergibt Logik an Services
-
-### Services
-
-* `GroupGenerator` → erstellt Gruppen
-* `KnockoutGenerator` → erstellt KO-Baum
-* `KnockoutAdvancer` → verarbeitet Spielverläufe
-
-### Models
-
-* `Tournament`
-* `Game`
-* `Player`
-* `Group`
-
----
-
-## 🔄 Spiel-Logik
-
-* Ergebnisse werden serverseitig verarbeitet
-* Gewinner werden automatisch ins nächste Spiel gesetzt
-* Änderungen propagieren durch den gesamten KO-Baum
-* Spiel um Platz 3 wird automatisch befüllt (optional)
-
----
-
-## 📡 Live-Updates
-
-* Ergebnisse werden per AJAX gespeichert
-* Nur betroffene Spiele werden aktualisiert
-* Kein vollständiger Seiten-Reload notwendig
-
----
-
-## 🔒 Sicherheit
-
-* Zugriff nur für Turnierbesitzer
-* Validierung aller Eingaben
-* Transaktionen für kritische Operationen
-
----
-
-## 📜 Lizenz
-
-Dieses Projekt ist unter der **GNU General Public License v3.0 (GPL-3.0)** veröffentlicht.
-
-Das bedeutet:
-
-* ✅ Nutzung erlaubt
-* ✅ Veränderung erlaubt
-* ✅ Weitergabe erlaubt
-* ❗ Änderungen müssen ebenfalls unter GPL veröffentlicht werden
-
----
-
-## 🙌 Mitwirken
-
-Pull Requests sind willkommen!
-
-Für größere Änderungen bitte vorher ein Issue erstellen.
-
----
-
-## 📌 Roadmap (Ideen)
-
-* [ ] WebSockets / Live-Multiplayer
-* [ ] UI/UX Verbesserungen
-* [ ] Statistiken & Spielerhistorie
-* [ ] API für externe Apps
-* [ ] Mobile Optimierung
-
----
-
-## ❤️ Credits
-
-Entwickelt mit Laravel und viel Kaffee ☕
+Dieses Projekt steht unter der GNU GPL v3. Details stehen in [LICENSE](/c:/Users/langen/dartmanager/LICENSE).

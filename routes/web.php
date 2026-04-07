@@ -1,18 +1,15 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\TournamentController;
-use App\Http\Controllers\TournamentPlayerController;
-use App\Http\Controllers\TournamentGameController;
-use App\Http\Controllers\TournamentAdminController;
-
 use App\Http\Controllers\PlayerController;
-use App\Http\Controllers\TvController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicController;
-
+use App\Http\Controllers\TournamentAdminController;
+use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\TournamentGameController;
+use App\Http\Controllers\TournamentPlayerController;
+use App\Http\Controllers\TvController;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,12 +17,11 @@ use App\Http\Controllers\PublicController;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', fn() => view('welcome'));
+Route::get('/', fn () => view('welcome'));
 
 // Turnier-URLs laufen über public_id (z. B. ABC123), damit
 // statische Pfade wie /tournaments/archive nicht als {tournament} gematcht werden.
 Route::pattern('tournament', '[A-Z0-9]{6}');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -39,10 +35,11 @@ Route::get('/follow/{tournament:public_id}', [PublicController::class, 'follow']
 Route::get('/follow/{tournament:public_id}/data', [PublicController::class, 'followData']);
 
 Route::get('/tv/{tournament:public_id}', [TvController::class, 'show'])
+    ->middleware('auth')
     ->name('tv.tournament');
 
-Route::get('/tv', [TvController::class, 'rotation']);
-
+Route::get('/tv', [TvController::class, 'rotation'])
+    ->middleware('auth');
 
 /*
 |--------------------------------------------------------------------------
@@ -50,10 +47,9 @@ Route::get('/tv', [TvController::class, 'rotation']);
 |--------------------------------------------------------------------------
 */
 
-Route::get('/dashboard', fn() => view('dashboard'))
+Route::get('/dashboard', fn () => view('dashboard'))
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -78,7 +74,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
 
-
     /*
     |--------------------------------------------------------------------------
     | 🏆 Turniere
@@ -96,7 +91,6 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/tournaments/{tournament}', [TournamentController::class, 'show'])
         ->name('tournaments.show');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -133,7 +127,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/tournaments/{tournament}/draw', [TournamentPlayerController::class, 'draw'])
         ->name('tournaments.draw');
 
-
     /*
     |--------------------------------------------------------------------------
     | 🎯 Spiele
@@ -149,7 +142,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/games/{game}/reload', [TournamentGameController::class, 'reloadGame'])
         ->name('games.reload');
     Route::get('/games/{game}/next', [TournamentGameController::class, 'nextGame']);
-
 
     /*
     |--------------------------------------------------------------------------
@@ -167,7 +159,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/tournaments/{tournament}/reopen', [TournamentAdminController::class, 'reopen'])
         ->name('tournaments.reopen');
 
-
     /*
     |--------------------------------------------------------------------------
     | 📦 Archiv
@@ -183,7 +174,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/tournaments/{tournament}/restore', [TournamentController::class, 'restore'])
         ->name('tournaments.restore');
 
-
     /*
     |--------------------------------------------------------------------------
     | 👥 Spieler bearbeiten
@@ -195,7 +185,6 @@ Route::middleware('auth')->group(function () {
 
     Route::delete('/players/{player}', [PlayerController::class, 'destroy'])
         ->name('players.destroy');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -219,7 +208,6 @@ Route::middleware('auth')->group(function () {
         ->name('tv.rotation-config');
   });
 
-
 /*
 |--------------------------------------------------------------------------
 | 🔄 Game Reload (AJAX)
@@ -235,16 +223,15 @@ Route::get('/games/{game}/html', function (\App\Models\Game $game) {
     if ($game->group_id) {
         return view('tournaments.partials._group_game_single', [
             'game' => $game,
-            'tournament' => $game->tournament
+            'tournament' => $game->tournament,
         ]);
     }
 
     return view('tournaments.partials._ko_game_inner', [
         'game' => $game,
-        'tournament' => $game->tournament
+        'tournament' => $game->tournament,
     ]);
 })->middleware(['auth', 'throttle:120,1']);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -262,7 +249,7 @@ Route::get('/groups/{group}/table', function (\App\Models\Group $group) {
             'games.player1',
             'games.player2'
         ),
-        'tournament' => $group->tournament
+        'tournament' => $group->tournament,
     ]);
 })->middleware(['auth', 'throttle:120,1']);
 
@@ -272,15 +259,14 @@ Route::get('/groups/{group}/games', function (\App\Models\Group $group) {
 
     $group = \App\Models\Group::with([
         'games.player1',
-        'games.player2'
+        'games.player2',
     ])->findOrFail($group->id);
 
     return view('tournaments.partials._group_games', [
         'group' => $group,
-        'tournament' => $group->tournament
+        'tournament' => $group->tournament,
     ]);
 })->middleware(['auth', 'throttle:120,1']);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -296,10 +282,9 @@ Route::get('/tournaments/{tournament}/bracket', function (\App\Models\Tournament
         'tournament' => $tournament->load(
             'games.player1',
             'games.player2'
-        )
+        ),
     ]);
 })->middleware(['auth', 'throttle:120,1'])->name('tournaments.bracket');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -307,4 +292,4 @@ Route::get('/tournaments/{tournament}/bracket', function (\App\Models\Tournament
 |--------------------------------------------------------------------------
 */
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

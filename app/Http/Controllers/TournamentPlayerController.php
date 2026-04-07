@@ -35,7 +35,6 @@ class TournamentPlayerController extends Controller
         return back();
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | Bulk Spieler
@@ -49,7 +48,7 @@ class TournamentPlayerController extends Controller
         }
 
         $request->validate([
-            'bulk_players' => 'required|string'
+            'bulk_players' => 'required|string',
         ]);
 
         $lines = preg_split('/\r\n|\r|\n/', $request->bulk_players);
@@ -58,16 +57,17 @@ class TournamentPlayerController extends Controller
 
             $name = trim($line);
 
-            if (!$name) continue;
+            if (! $name) {
+                continue;
+            }
 
             $tournament->players()->firstOrCreate([
-                'name' => $name
+                'name' => $name,
             ]);
         }
 
         return back()->with('success', 'Spieler importiert');
     }
-
 
     /*
     |--------------------------------------------------------------------------

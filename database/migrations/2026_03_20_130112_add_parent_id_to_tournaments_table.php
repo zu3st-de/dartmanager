@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tournaments', function (Blueprint $table) {
-            if (!Schema::hasColumn('tournaments', 'parent_id')) {
+            if (! Schema::hasColumn('tournaments', 'parent_id')) {
                 $table->foreignId('parent_id')
                     ->nullable()
                     ->constrained('tournaments')
