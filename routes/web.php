@@ -208,6 +208,12 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/admin/tv', [TvController::class, 'save'])
         ->name('tv.save');
+
+    Route::post('/tournaments/{tournament}/tv-toggle', [TvController::class, 'toggle'])
+        ->name('tv.toggle');
+
+    Route::post('/tv/rotation-time', [TvController::class, 'updateRotationTime'])
+        ->name('tv.rotation-time');
 });
 
 

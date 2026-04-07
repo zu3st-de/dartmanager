@@ -78,7 +78,7 @@ class TvController extends Controller
         $validated = $request->validate([
             'tournaments' => ['nullable', 'array'],
             'tournaments.*' => ['integer'],
-            'rotation_time' => ['nullable', 'integer', 'min:5', 'max:300'],
+            'rotation_time' => ['nullable', 'integer', 'min:3', 'max:45'],
         ]);
 
         // Nur eigene Turniere erlauben
@@ -119,6 +119,67 @@ class TvController extends Controller
 
 
         return back()->with('success', 'TV Programm gespeichert');
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | TV Turnier direkt umschalten
+    |--------------------------------------------------------------------------
+    */
+
+    public function toggle(Tournament $tournament)
+    {
+        if ($tournament->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        if ($tournament->status === 'archived') {
+            return back()->with('error', 'Archivierte Turniere können nicht im TV angezeigt werden.');
+        }
+
+        $existingEntry = TvTournament::where('user_id', auth()->id())
+            ->where('tournament_id', $tournament->id)
+            ->first();
+
+        if ($existingEntry) {
+            $existingEntry->delete();
+
+            return back()->with('success', 'Turnier aus dem TV entfernt.');
+        }
+
+        $nextPosition = (int) TvTournament::where('user_id', auth()->id())->max('position') + 1;
+
+        $rotationTime = TvTournament::where('user_id', auth()->id())
+            ->orderBy('position')
+            ->value('rotation_time') ?? 20;
+
+        TvTournament::create([
+            'user_id' => auth()->id(),
+            'tournament_id' => $tournament->id,
+            'position' => max(1, $nextPosition),
+            'rotation_time' => $rotationTime,
+        ]);
+
+        return back()->with('success', 'Turnier zum TV hinzugefügt.');
+    }
+
+    public function updateRotationTime(Request $request)
+    {
+        $validated = $request->validate([
+            'rotation_time' => ['required', 'integer', 'min:3', 'max:45'],
+        ]);
+
+        $updated = TvTournament::where('user_id', auth()->id())
+            ->update([
+                'rotation_time' => (int) $validated['rotation_time'],
+            ]);
+
+        if ($updated === 0) {
+            return back()->with('error', 'Lege zuerst ein Turnier für das TV fest.');
+        }
+
+        return back()->with('success', 'Rotationszeit aktualisiert.');
     }
 
 

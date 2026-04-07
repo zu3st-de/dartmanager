@@ -4,7 +4,7 @@
     {{-- Template für Overview --}}
     <div id="overviewTemplate" style="display:none">
 
-        <div class="h-full w-full flex items-center justify-center">
+        <div class="flex min-h-[calc(100vh-5rem)] w-full items-center justify-center">
 
             <div class="flex justify-center items-start gap-24">
 

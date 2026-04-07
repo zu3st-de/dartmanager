@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
+use App\Models\TvTournament;
 use App\Models\Game;
 
 use Illuminate\Http\Request;
@@ -94,6 +95,11 @@ class TournamentController extends Controller
             ->latest()
             ->get();
 
+        $tvTournamentIds = TvTournament::query()
+            ->where('user_id', auth()->id())
+            ->pluck('tournament_id')
+            ->all();
+
 
         /*
     |--------------------------------------------------------------
@@ -106,7 +112,7 @@ class TournamentController extends Controller
     |
     */
 
-        return view('tournaments.index', compact('tournaments'));
+        return view('tournaments.index', compact('tournaments', 'tvTournamentIds'));
     }
 
     /*

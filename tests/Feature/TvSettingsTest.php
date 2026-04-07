@@ -124,4 +124,60 @@ class TvSettingsTest extends TestCase
             'tournament_id' => $archivedTournament->id,
         ]);
     }
+
+    public function test_tournament_can_be_toggled_for_tv_from_the_tournament_list(): void
+    {
+        $user = User::factory()->create();
+
+        $tournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Feierabend Cup',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        $this->actingAs($user)
+            ->from('/tournaments')
+            ->post("/tournaments/{$tournament->public_id}/tv-toggle")
+            ->assertRedirect('/tournaments');
+
+        $this->assertDatabaseHas('tv_tournaments', [
+            'user_id' => $user->id,
+            'tournament_id' => $tournament->id,
+            'position' => 1,
+            'rotation_time' => 20,
+        ]);
+
+        $this->actingAs($user)
+            ->from('/tournaments')
+            ->post("/tournaments/{$tournament->public_id}/tv-toggle")
+            ->assertRedirect('/tournaments');
+
+        $this->assertDatabaseMissing('tv_tournaments', [
+            'user_id' => $user->id,
+            'tournament_id' => $tournament->id,
+        ]);
+    }
+
+    public function test_archived_tournament_cannot_be_toggled_for_tv(): void
+    {
+        $user = User::factory()->create();
+
+        $tournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Archiv Cup',
+            'mode' => 'ko',
+            'status' => 'archived',
+        ]);
+
+        $this->actingAs($user)
+            ->from('/tournaments')
+            ->post("/tournaments/{$tournament->public_id}/tv-toggle")
+            ->assertRedirect('/tournaments')
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseMissing('tv_tournaments', [
+            'tournament_id' => $tournament->id,
+        ]);
+    }
 }

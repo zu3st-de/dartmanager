@@ -32,7 +32,7 @@
                 </label>
 
                 <input type="number" name="rotation_time" value="{{ $rotationTime ?? 20 }}"
-                    class="bg-gray-800 text-white px-3 py-2 rounded w-32" min="5" max="300">
+                    class="bg-gray-800 text-white px-3 py-2 rounded w-32" min="3" max="45">
             </div>
             <button class="mt-6 px-4 py-2 bg-blue-600 text-white rounded">
                 Speichern
