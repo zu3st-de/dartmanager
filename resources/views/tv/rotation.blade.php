@@ -1,134 +1,114 @@
 @extends('layouts.tv')
 
 @section('content')
-    {{-- Template für Overview --}}
-    <div id="overviewTemplate" style="display:none">
+    <div id="overviewTemplate" style="display:none">{!! $initialConfig['overview_html'] !!}</div>
 
-        <div class="flex min-h-[calc(100vh-5rem)] w-full items-center justify-center">
-
-            <div class="flex justify-center items-start gap-24">
-
-                @foreach ($tournaments as $tournament)
-                    @php
-                        $isLucky = $tournament->parent_id !== null;
-                        $lucky = $tournaments->firstWhere('parent_id', $tournament->id);
-                        $size = $lucky ? 320 : 444;
-                    @endphp
-
-                    @if ($isLucky)
-                        @continue
-                    @endif
-
-                    <div class="flex flex-col items-center gap-8">
-
-                        <div class="text-center">
-                            <div class="text-3xl font-semibold mb-6">
-                                {{ $tournament->name }}
-                            </div>
-
-                            <div class="flex justify-center">
-                                <div class="bg-white p-4 rounded-lg">
-                                    {!! QrCode::size($size)->generate(url('/follow/' . $tournament->public_id)) !!}
-                                </div>
-                            </div>
-                        </div>
-
-                        @if ($lucky)
-                            <div class="text-center">
-                                <div class="text-yellow-400 text-xl mb-4">
-                                    Lucky-Loser
-                                </div>
-
-                                <div class="flex justify-center">
-                                    <div class="bg-white p-4 rounded-lg">
-                                        {!! QrCode::size($size)->generate(url('/follow/' . $lucky->public_id)) !!}
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
-
-                    </div>
-                @endforeach
-
-            </div>
-
-        </div>
-
-    </div>
-
-    {{-- Stage Container --}}
     <div id="tvStage"></div>
 @endsection
 
 @push('scripts')
     <script>
-        const rotationTime = {{ \App\Models\TvTournament::where('user_id', auth()->id())->value('rotation_time') ?? 20 }};
-
         document.addEventListener("DOMContentLoaded", function() {
+            const stage = document.getElementById("tvStage");
+            const overviewTemplate = document.getElementById("overviewTemplate");
+            const configUrl = "{{ route('tv.rotation-config') }}";
 
-            const stage = document.getElementById("tvStage")
+            let config = @json($initialConfig);
+            let pages = config.pages?.length ? config.pages : [{
+                type: "overview"
+            }];
+            let index = 0;
+            let rotationTimer = null;
 
-            const pages = [
+            function currentPageKey(page) {
+                return page.type === "tournament"
+                    ? `tournament:${page.public_id ?? page.url}`
+                    : "overview";
+            }
 
-                {
-                    type: "overview"
-                },
+            function restartRotationTimer() {
+                if (rotationTimer) {
+                    clearInterval(rotationTimer);
+                }
 
-                @foreach ($tournaments as $t)
-                    {
-                        type: "tournament",
-                        url: "/tv/{{ $t->public_id }}"
-                    },
-                @endforeach
-
-            ]
-
-            let index = 0
+                rotationTimer = setInterval(next, (config.rotation_time ?? 20) * 1000);
+            }
 
             function showPage() {
+                const page = pages[index] ?? pages[0] ?? {
+                    type: "overview"
+                };
 
-                const page = pages[index]
-
-                stage.style.opacity = 0
+                stage.style.opacity = 0;
 
                 setTimeout(() => {
-
                     if (page.type === "overview") {
-
-                        stage.innerHTML =
-                            document.getElementById("overviewTemplate").innerHTML
-
+                        stage.innerHTML = overviewTemplate.innerHTML;
                     } else {
-
                         stage.innerHTML =
-                            `<iframe src="${page.url}" 
-                style="width:100%;height:100vh;border:none"></iframe>`
-
+                            `<iframe src="${page.url}" style="width:100%;height:100vh;border:none"></iframe>`;
                     }
 
-                    stage.style.opacity = 1
-
-                }, 500)
-
+                    stage.style.opacity = 1;
+                }, 500);
             }
 
             function next() {
-
-                index++
+                index++;
 
                 if (index >= pages.length) {
-                    index = 0
+                    index = 0;
                 }
 
-                showPage()
-
+                showPage();
             }
 
-            showPage()
+            function applyConfig(nextConfig) {
+                const currentKey = currentPageKey(pages[index] ?? {
+                    type: "overview"
+                });
 
-            setInterval(next, rotationTime * 1000)
+                config = nextConfig;
+                pages = nextConfig.pages?.length ? nextConfig.pages : [{
+                    type: "overview"
+                }];
+                overviewTemplate.innerHTML = nextConfig.overview_html ?? "";
 
-        })
+                const nextIndex = pages.findIndex(page => currentPageKey(page) === currentKey);
+                index = nextIndex >= 0 ? nextIndex : 0;
+
+                showPage();
+                restartRotationTimer();
+            }
+
+            async function refreshConfig() {
+                try {
+                    const response = await fetch(configUrl, {
+                        cache: "no-store",
+                        headers: {
+                            "Accept": "application/json",
+                            "X-Requested-With": "XMLHttpRequest"
+                        }
+                    });
+
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const nextConfig = await response.json();
+
+                    if (nextConfig.signature !== config.signature) {
+                        applyConfig(nextConfig);
+                    }
+                } catch (error) {
+                    console.error("tv rotation refresh failed", error);
+                }
+            }
+
+            showPage();
+            restartRotationTimer();
+            setInterval(refreshConfig, 5000);
+        });
     </script>
 @endpush
 

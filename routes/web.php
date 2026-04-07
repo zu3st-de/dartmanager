@@ -214,7 +214,10 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/tv/rotation-time', [TvController::class, 'updateRotationTime'])
         ->name('tv.rotation-time');
-});
+
+    Route::get('/tv/config', [TvController::class, 'rotationConfig'])
+        ->name('tv.rotation-config');
+  });
 
 
 /*
