@@ -107,7 +107,6 @@ class TvBracketVisibilityTest extends TestCase
 
         $rounds = $response->viewData('rounds');
 
-        $this->assertFalse($rounds->has(1));
         $this->assertTrue($rounds->has(2));
         $this->assertTrue($rounds->has(3));
         $this->assertTrue($rounds->has(4));

@@ -57,12 +57,12 @@ class TvController extends Controller
 
         $rotationTime = (int) ($validated['rotation_time'] ?? 20);
         $selected = collect($validated['tournaments'] ?? [])
-            ->filter(fn ($id) => in_array($id, $userTournamentIds))
+            ->filter(fn($id) => in_array($id, $userTournamentIds))
             ->values()
             ->all();
 
         $preferredOrder = collect($validated['ordered_tournaments'] ?? [])
-            ->filter(fn ($id) => in_array($id, $userTournamentIds))
+            ->filter(fn($id) => in_array($id, $userTournamentIds))
             ->values()
             ->all();
 
@@ -96,7 +96,7 @@ class TvController extends Controller
 
         if ($existingEntry) {
             $selectedIds = $this->currentSelectedTournamentIds();
-            $orderedIds = array_values(array_filter($selectedIds, fn ($id) => (int) $id !== (int) $tournament->id));
+            $orderedIds = array_values(array_filter($selectedIds, fn($id) => (int) $id !== (int) $tournament->id));
             $rotationTime = $this->currentRotationTime();
             $this->persistRotation($orderedIds, $rotationTime);
 
@@ -170,14 +170,48 @@ class TvController extends Controller
                     'name' => $tournament->name,
                     'public_id' => $tournament->public_id,
                     'parent_id' => $tournament->parent_id,
-                    'follow_url' => url('/follow/'.$tournament->public_id),
-                    'tv_url' => url('/tv/'.$tournament->public_id),
+                    'follow_url' => url('/follow/' . $tournament->public_id),
+                    'tv_url' => url('/tv/' . $tournament->public_id),
                 ];
             })->values(),
             'overviewHtml' => view('tv.partials.overview', [
                 'tournaments' => $tournaments,
             ])->render(),
         ]);
+    }
+
+    public function rotationConfig(): JsonResponse
+    {
+        $tournaments = $this->rotationTournaments();
+        $rotationTime = TvTournament::where('user_id', auth()->id())
+            ->orderBy('position')
+            ->value('rotation_time') ?? 20;
+
+        $overviewHtml = view('tv.partials.overview', [
+            'tournaments' => $tournaments,
+        ])->render();
+
+        $pages = collect([
+            ['type' => 'overview'],
+        ])->concat($tournaments->map(function (Tournament $tournament) {
+            return [
+                'type' => 'tournament',
+                'public_id' => $tournament->public_id,
+                'name' => $tournament->name,
+            ];
+        }));
+
+        $signature = md5($overviewHtml . json_encode($pages) . $rotationTime);
+
+        return response()->json([
+            'rotation_time' => (int) $rotationTime,
+            'pages' => $pages->values(),
+            'overview_html' => $overviewHtml,
+            'signature' => $signature,
+        ])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     public function show(Tournament $tournament)
@@ -298,13 +332,13 @@ class TvController extends Controller
     private function sanitizeTournamentOrder(array $selectedIds, array $preferredOrder = []): array
     {
         $selectedLookup = collect($selectedIds)
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values();
 
         $preferred = collect($preferredOrder)
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $selectedLookup->contains($id))
+            ->map(fn($id) => (int) $id)
+            ->filter(fn($id) => $selectedLookup->contains($id))
             ->values();
 
         return $preferred
@@ -317,8 +351,8 @@ class TvController extends Controller
     {
         $tournamentMap = $tournaments->keyBy('id');
         $current = collect($selectedIds)
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $tournamentMap->has($id))
+            ->map(fn($id) => (int) $id)
+            ->filter(fn($id) => $tournamentMap->has($id))
             ->unique()
             ->values();
 
@@ -356,13 +390,13 @@ class TvController extends Controller
 
         if (! $tournament->parent_id) {
             $childIds = $tournaments
-                ->filter(fn ($candidate) => (int) $candidate->parent_id === (int) $tournament->id)
+                ->filter(fn($candidate) => (int) $candidate->parent_id === (int) $tournament->id)
                 ->pluck('id')
-                ->map(fn ($id) => (int) $id);
+                ->map(fn($id) => (int) $id);
 
             $childPositions = $current
-                ->map(fn ($id, $index) => $childIds->contains((int) $id) ? $index : null)
-                ->filter(fn ($index) => $index !== null)
+                ->map(fn($id, $index) => $childIds->contains((int) $id) ? $index : null)
+                ->filter(fn($index) => $index !== null)
                 ->values();
 
             if ($childPositions->isNotEmpty()) {
@@ -384,11 +418,11 @@ class TvController extends Controller
             ->flip();
 
         $selectedTournaments = collect($selectedOrder)
-            ->map(fn ($id) => $tournaments->firstWhere('id', $id))
+            ->map(fn($id) => $tournaments->firstWhere('id', $id))
             ->filter();
 
         $unselectedTournaments = $tournaments
-            ->filter(fn ($tournament) => ! $selectedLookup->has($tournament->id))
+            ->filter(fn($tournament) => ! $selectedLookup->has($tournament->id))
             ->sortBy('name')
             ->values();
 
@@ -423,13 +457,13 @@ class TvController extends Controller
         $firstVisibleRound = $mainRounds->keys()->first();
 
         foreach ($mainRounds as $roundNumber => $games) {
-            if ($games->contains(fn ($game) => $game->winner_id === null)) {
+            if ($games->contains(fn($game) => $game->winner_id === null)) {
                 $firstVisibleRound = $roundNumber;
                 break;
             }
         }
 
-        if ($mainRounds->every(fn ($games) => $games->every(fn ($game) => $game->winner_id !== null))) {
+        if ($mainRounds->every(fn($games) => $games->every(fn($game) => $game->winner_id !== null))) {
             $firstVisibleRound = max(
                 (int) $mainRounds->keys()->last() - 2,
                 (int) $mainRounds->keys()->first(),
@@ -437,25 +471,26 @@ class TvController extends Controller
         }
 
         $visibleRounds = $mainRounds
-            ->filter(fn ($_, $roundNumber) => (int) $roundNumber >= (int) $firstVisibleRound)
+            ->filter(fn($_, $roundNumber) => (int) $roundNumber >= (int) $firstVisibleRound)
             ->values();
 
-        $reindexedRounds = collect();
-
-        foreach ($visibleRounds as $index => $games) {
-            $reindexedRounds->put($index + 1, $games->values());
+        // Preserve original round numbers instead of re-indexing
+        $roundsByNumber = collect();
+        foreach ($visibleRounds as $games) {
+            $roundNumber = $games->first()->round;
+            $roundsByNumber->put($roundNumber, $games->values());
         }
 
         $thirdPlaceGames = $thirdPlaceRounds->flatten(1)->values();
 
-        if ($thirdPlaceGames->isNotEmpty() && $reindexedRounds->isNotEmpty()) {
-            $lastVisibleRound = $reindexedRounds->keys()->last();
-            $reindexedRounds->put(
+        if ($thirdPlaceGames->isNotEmpty() && $roundsByNumber->isNotEmpty()) {
+            $lastVisibleRound = $roundsByNumber->keys()->last();
+            $roundsByNumber->put(
                 $lastVisibleRound,
-                $reindexedRounds->get($lastVisibleRound)->concat($thirdPlaceGames)->values(),
+                $roundsByNumber->get($lastVisibleRound)->concat($thirdPlaceGames)->values(),
             );
         }
 
-        return $reindexedRounds;
+        return $roundsByNumber;
     }
 }

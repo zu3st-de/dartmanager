@@ -56,4 +56,36 @@ class KoScoreEntryTest extends TestCase
         $this->assertNull($game->fresh()->player1_score);
         $this->assertNull($game->fresh()->player2_score);
     }
+
+    public function test_ko_bye_game_cannot_be_reset(): void
+    {
+        $user = User::factory()->create();
+
+        $tournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'KO Freilos Reset Test',
+            'mode' => 'ko',
+            'status' => 'ko_running',
+        ]);
+
+        $player = $tournament->players()->create([
+            'name' => 'Spieler 1',
+        ]);
+
+        $byeGame = Game::create([
+            'tournament_id' => $tournament->id,
+            'group_id' => null,
+            'player1_id' => $player->id,
+            'player2_id' => null,
+            'round' => 1,
+            'position' => 1,
+            'best_of' => 3,
+            'is_third_place' => false,
+            'winner_id' => $player->id,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('games.reset', $byeGame))
+            ->assertForbidden();
+    }
 }

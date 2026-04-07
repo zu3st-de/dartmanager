@@ -297,9 +297,10 @@
                     <form method="POST" action="{{ route('tournaments.updateRoundBestOf', [$tournament, $round]) }}">
                         @csrf
                         @method('PATCH')
+                        <input type="hidden" name="round" value="{{ $round }}">
 
                         <select name="best_of"
-                            onchange="updateBestOf(this, {{ $tournament->id }}, {{ $round }})"
+                            onchange="this.form.requestSubmit()"
                             class="mt-1 w-20 text-xs font-semibold
                bg-gray-800 text-emerald-400
                border border-gray-700
@@ -367,6 +368,7 @@
                         action="{{ route('tournaments.updateRoundBestOf', [$tournament, $finalRound]) }}">
                         @csrf
                         @method('PATCH')
+                        <input type="hidden" name="round" value="{{ $finalRound }}">
 
                         {{-- Kennzeichnung: es ist Platz 3 --}}
                         <input type="hidden" name="is_third_place" value="1">
@@ -380,7 +382,7 @@
                         @endphp
 
                         <select name="best_of"
-                            onchange="updateBestOf(this, {{ $tournament->id }}, {{ $round }})"
+                            onchange="this.form.requestSubmit()"
                             class="mt-1 w-20 text-xs font-semibold
                    bg-gray-800 text-amber-400
                    border border-gray-700

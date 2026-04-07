@@ -146,6 +146,11 @@ class Game extends Model
 
         // KO Spiele nur in KO Phase
         if (! $this->group_id && $status === 'ko_running') {
+            // Freilos-Spiel (nur ein gesetzter Teilnehmer) darf nicht geloescht werden.
+            if ((bool) $this->player1_id xor (bool) $this->player2_id) {
+                return false;
+            }
+
             return true;
         }
 

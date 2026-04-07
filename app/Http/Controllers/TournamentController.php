@@ -10,6 +10,7 @@ use App\Services\Group\GroupTableCalculator;
 use App\Services\Knockout\KnockoutAdvancer;
 use App\Services\Knockout\KnockoutGenerator;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -127,17 +128,66 @@ class TournamentController extends Controller
         ));
     }
 
+    public function getStatuses()
+    {
+        $tournaments = auth()->user()
+            ->tournaments()
+            ->whereNotIn('status', ['archived'])
+            ->select('id', 'status')
+            ->get();
+
+        return response()->json($tournaments->pluck('status', 'id'));
+    }
+
+    public function getData()
+    {
+        $tournaments = auth()->user()
+            ->tournaments()
+            ->whereNotIn('status', ['archived'])
+            ->with('parent')
+            ->latest()
+            ->get();
+
+        $tvTournamentIds = TvTournament::query()
+            ->where('user_id', auth()->id())
+            ->orderBy('position')
+            ->pluck('tournament_id')
+            ->all();
+
+        $tvRotationTime = (int) (TvTournament::query()
+            ->where('user_id', auth()->id())
+            ->orderBy('position')
+            ->value('rotation_time') ?? 20);
+
+        $selectedOrder = $this->sanitizeTvTournamentOrder($tournaments, $tvTournamentIds, $tvTournamentIds);
+        $orderedTournaments = $this->orderTournamentsForIndex($tournaments, $selectedOrder);
+
+        return response()->json([
+            'tournaments' => $orderedTournaments->map(function ($tournament) use ($tvTournamentIds) {
+                return [
+                    'id' => $tournament->id,
+                    'name' => $tournament->name,
+                    'status' => $tournament->status,
+                    'public_id' => $tournament->public_id,
+                    'is_on_tv' => in_array($tournament->id, $tvTournamentIds, true),
+                ];
+            }),
+            'tv_tournament_ids' => $tvTournamentIds,
+            'tv_rotation_time' => $tvRotationTime,
+        ]);
+    }
+
     private function sanitizeTvTournamentOrder($tournaments, array $selectedIds, array $preferredOrder = []): array
     {
         $selectedLookup = collect($selectedIds)
-            ->filter(fn ($id) => $tournaments->contains('id', $id))
-            ->map(fn ($id) => (int) $id)
+            ->filter(fn($id) => $tournaments->contains('id', $id))
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values();
 
         $preferred = collect($preferredOrder)
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $selectedLookup->contains($id))
+            ->map(fn($id) => (int) $id)
+            ->filter(fn($id) => $selectedLookup->contains($id))
             ->values();
 
         return $preferred
@@ -151,11 +201,11 @@ class TournamentController extends Controller
         $selectedLookup = collect($selectedOrder)->flip();
 
         $selectedTournaments = collect($selectedOrder)
-            ->map(fn ($id) => $tournaments->firstWhere('id', $id))
+            ->map(fn($id) => $tournaments->firstWhere('id', $id))
             ->filter();
 
         $unselectedTournaments = $tournaments
-            ->filter(fn ($tournament) => ! $selectedLookup->has($tournament->id))
+            ->filter(fn($tournament) => ! $selectedLookup->has($tournament->id))
             ->sortBy('name')
             ->values();
 
@@ -1459,6 +1509,32 @@ class TournamentController extends Controller
         ]);
     }
 
+    public function updateRoundBestOf(Request $request, Tournament $tournament)
+    {
+        $this->authorizeTournament($tournament);
+
+        $validated = $request->validate([
+            'round' => 'required|integer|min:1',
+            'best_of' => 'required|integer|in:1,3,5,7,9',
+            'is_third_place' => 'nullable|boolean',
+        ]);
+
+        $round = (int) $validated['round'];
+        $bestOf = (int) $validated['best_of'];
+        $isThirdPlace = (bool) ($validated['is_third_place'] ?? false);
+
+        Game::where('tournament_id', $tournament->id)
+            ->where('round', $round)
+            ->where('is_third_place', $isThirdPlace)
+            ->update([
+                'best_of' => $bestOf,
+            ]);
+
+        return redirect()
+            ->route('tournaments.show', $tournament)
+            ->with('success', 'Best-of der Runde wurde aktualisiert.');
+    }
+
     /*
 |--------------------------------------------------------------------------
 | Gruppenphase abschließen
@@ -1618,7 +1694,7 @@ class TournamentController extends Controller
 
                 $tables[$group->name] =
                     app(GroupTableCalculator::class)
-                        ->calculate($group);
+                    ->calculate($group);
             }
 
             /*
@@ -1891,7 +1967,7 @@ class TournamentController extends Controller
         $validator = Validator::make(
             $request->all(),
             [
-                'confirm_name' => ['required', 'in:'.$tournament->name],
+                'confirm_name' => ['required', 'in:' . $tournament->name],
             ],
             [
                 'confirm_name.in' => 'Turniername stimmt nicht überein',
@@ -2245,7 +2321,7 @@ class TournamentController extends Controller
         $validator = Validator::make(
             $request->all(),
             [
-                'confirm_name' => ['required', 'in:'.$tournament->name],
+                'confirm_name' => ['required', 'in:' . $tournament->name],
             ],
             [
                 'confirm_name.in' => 'Turniername stimmt nicht überein',
@@ -2607,7 +2683,7 @@ class TournamentController extends Controller
                 'type' => 'lucky_loser',
             ],
             [
-                'name' => $tournament->name.' - Lucky Loser',
+                'name' => $tournament->name . ' - Lucky Loser',
                 'user_id' => $tournament->user_id,
                 'mode' => 'ko',
                 'status' => 'draft',
@@ -2652,14 +2728,25 @@ class TournamentController extends Controller
 
         /*
     |--------------------------------------------------------------------------
-    | TV Eintrag nur einmal
+    | TV Eintrag nur einmal, direkt hinter dem Hauptturnier
     |--------------------------------------------------------------------------
     */
         if (! $lucky->tvTournaments()->where('user_id', $lucky->user_id)->exists()) {
+            // Position des Hauptturniers holen
+            $parentPosition = \App\Models\TvTournament::where('user_id', $tournament->user_id)
+                ->where('tournament_id', $tournament->id)
+                ->value('position') ?? 0;
+
+            // Alle Positionen ab parentPosition + 1 um 1 erhöhen
+            \App\Models\TvTournament::where('user_id', $tournament->user_id)
+                ->where('position', '>', $parentPosition)
+                ->increment('position');
+
+            // Lucky Loser an Position parentPosition + 1 einfügen
             \App\Models\TvTournament::create([
-                'user_id' => $lucky->user_id,
+                'user_id' => $tournament->user_id,
                 'tournament_id' => $lucky->id,
-                'position' => 999,
+                'position' => $parentPosition + 1,
             ]);
         }
     }

@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', fn () => view('welcome'));
+Route::get('/', fn() => view('welcome'));
 
 // Turnier-URLs laufen über public_id (z. B. ABC123), damit
 // statische Pfade wie /tournaments/archive nicht als {tournament} gematcht werden.
@@ -45,13 +45,17 @@ Route::get('/tv/data', [TvController::class, 'rotationData'])
     ->middleware('auth')
     ->name('tv.rotation.data');
 
+Route::get('/tv/config', [TvController::class, 'rotationConfig'])
+    ->middleware('auth')
+    ->name('tv.rotation-config');
+
 /*
 |--------------------------------------------------------------------------
 | 🔐 Dashboard
 |--------------------------------------------------------------------------
 */
 
-Route::get('/dashboard', fn () => view('dashboard'))
+Route::get('/dashboard', fn() => view('dashboard'))
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
@@ -86,6 +90,12 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/tournaments', [TournamentController::class, 'index'])
         ->name('tournaments.index');
+
+    Route::get('/tournaments/statuses', [TournamentController::class, 'getStatuses'])
+        ->name('tournaments.statuses');
+
+    Route::get('/tournaments/data', [TournamentController::class, 'getData'])
+        ->name('tournaments.data');
 
     Route::get('/tournaments/create', [TournamentController::class, 'create'])
         ->name('tournaments.create');
@@ -207,8 +217,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/tv/rotation-time', [TvController::class, 'updateRotationTime'])
         ->name('tv.rotation-time');
-
-  });
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -294,4 +303,4 @@ Route::get('/tournaments/{tournament}/bracket', function (\App\Models\Tournament
 |--------------------------------------------------------------------------
 */
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

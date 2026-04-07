@@ -1,3 +1,5 @@
+@section('title', $tournament->name)
+
 <x-app-layout>
     {{-- Gesamt-Layout mit vertikalem Abstand --}}
     <div class="space-y-8 py-8">

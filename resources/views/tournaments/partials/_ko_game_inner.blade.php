@@ -54,10 +54,11 @@
             $p1Winner = (int) $game->winner_id === (int) $game->player1_id;
             $p2Winner = (int) $game->winner_id === (int) $game->player2_id;
             $showWinnerState = $participantsReady && $game->winner_id;
+            $showWaitingHint = ! $participantsReady && ! ($game->player1_id xor $game->player2_id);
         @endphp
 
         <div class="space-y-2 text-sm">
-            @if (!$participantsReady)
+            @if ($showWaitingHint)
                 <div class="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
                     Wartet auf Teilnehmer
                 </div>

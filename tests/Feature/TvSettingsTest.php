@@ -275,6 +275,55 @@ class TvSettingsTest extends TestCase
             ->assertJsonPath('tournaments.1.id', $secondTournament->id);
     }
 
+    public function test_navigation_lists_active_tournaments_in_tv_rotation_order_first(): void
+    {
+        $user = User::factory()->create();
+
+        $firstRotationTournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Rotation A',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        $secondRotationTournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Rotation B',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        $otherActiveTournament = Tournament::create([
+            'user_id' => $user->id,
+            'name' => 'Ohne TV',
+            'mode' => 'ko',
+            'status' => 'draft',
+        ]);
+
+        TvTournament::create([
+            'user_id' => $user->id,
+            'tournament_id' => $secondRotationTournament->id,
+            'position' => 1,
+            'rotation_time' => 20,
+        ]);
+
+        TvTournament::create([
+            'user_id' => $user->id,
+            'tournament_id' => $firstRotationTournament->id,
+            'position' => 2,
+            'rotation_time' => 20,
+        ]);
+
+        $this->actingAs($user)
+            ->get('/tournaments/create')
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Rotation B',
+                'Rotation A',
+                'Ohne TV',
+            ]);
+    }
+
     public function test_tv_save_respects_manual_order_after_lucky_loser_was_added(): void
     {
         $user = User::factory()->create();
@@ -402,7 +451,7 @@ class TvSettingsTest extends TestCase
 
         foreach (range(1, 6) as $index) {
             $players->push($tournament->players()->create([
-                'name' => 'Spieler '.$index,
+                'name' => 'Spieler ' . $index,
                 'seed' => $index,
             ]));
         }
@@ -490,8 +539,8 @@ class TvSettingsTest extends TestCase
 
         $rounds = $method->invoke($controller, $tournament);
 
-        $this->assertSame([1, 2], $rounds->keys()->all());
-        $this->assertCount(4, $rounds->get(1));
-        $this->assertCount(2, $rounds->get(2));
+        $this->assertSame([3, 4], $rounds->keys()->all());
+        $this->assertCount(4, $rounds->get(3));
+        $this->assertCount(2, $rounds->get(4));
     }
 }

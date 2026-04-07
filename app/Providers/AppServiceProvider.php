@@ -36,6 +36,29 @@ class AppServiceProvider extends ServiceProvider
                     ->latest()
                     ->get();
 
+                $rotationOrder = TvTournament::query()
+                    ->where('user_id', Auth::id())
+                    ->orderBy('position')
+                    ->pluck('tournament_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->values();
+
+                if ($rotationOrder->isNotEmpty()) {
+                    $rotationLookup = $rotationOrder->flip();
+
+                    $rotatingTournaments = $rotationOrder
+                        ->map(fn ($id) => $activeTournaments->firstWhere('id', $id))
+                        ->filter();
+
+                    $otherActiveTournaments = $activeTournaments
+                        ->filter(fn ($tournament) => ! $rotationLookup->has((int) $tournament->id))
+                        ->values();
+
+                    $activeTournaments = $rotatingTournaments
+                        ->concat($otherActiveTournaments)
+                        ->values();
+                }
+
                 $tvRotationTime = TvTournament::query()
                     ->where('user_id', Auth::id())
                     ->orderBy('position')

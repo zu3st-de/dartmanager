@@ -28,8 +28,10 @@
             <div class="rounded-xl bg-gray-900 p-6 shadow dark:bg-gray-800">
                 <div class="mb-4 flex items-center justify-between gap-4 text-sm text-gray-400">
                     <span>
-                        Die vorhandene Turnierübersicht ist ziehbar. Die TV-Reihenfolge wird beim Loslassen direkt übernommen.
-                        Lucky-Loser-Turniere starten beim Hinzufügen direkt hinter ihrem Hauptturnier und können danach frei verschoben werden.
+                        Die vorhandene Turnierübersicht ist ziehbar. Die TV-Reihenfolge wird beim Loslassen direkt
+                        übernommen.
+                        Lucky-Loser-Turniere starten beim Hinzufügen direkt hinter ihrem Hauptturnier und können danach
+                        frei verschoben werden.
                     </span>
                     <span id="tv-order-status" class="text-xs text-emerald-400"></span>
                 </div>
@@ -42,35 +44,38 @@
                                 'draft' => [
                                     'label' => 'Entwurf',
                                     'classes' => 'border-slate-600/80 bg-slate-500/10 text-slate-300',
-                                    'svg' => '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"></path><path d="M13 7l4 4"></path></svg>',
+                                    'svg' =>
+                                        '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"></path><path d="M13 7l4 4"></path></svg>',
                                 ],
                                 'group_running' => [
                                     'label' => 'Gruppenphase',
                                     'classes' => 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300',
-                                    'svg' => '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="2"></circle><circle cx="17" cy="7" r="2"></circle><circle cx="12" cy="17" r="2"></circle><path d="M8.8 8.2l2.4 6.6"></path><path d="M15.2 8.2l-2.4 6.6"></path><path d="M9 7h6"></path></svg>',
+                                    'svg' =>
+                                        '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="2"></circle><circle cx="17" cy="7" r="2"></circle><circle cx="12" cy="17" r="2"></circle><path d="M8.8 8.2l2.4 6.6"></path><path d="M15.2 8.2l-2.4 6.6"></path><path d="M9 7h6"></path></svg>',
                                 ],
                                 'ko_running' => [
                                     'label' => 'KO-Phase',
                                     'classes' => 'border-amber-500/60 bg-amber-500/10 text-amber-300',
-                                    'svg' => '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v6a3 3 0 003 3h6a3 3 0 003-3V4"></path><path d="M9 20h6"></path><path d="M12 14v6"></path><path d="M4 6h2"></path><path d="M18 6h2"></path></svg>',
+                                    'svg' =>
+                                        '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v6a3 3 0 003 3h6a3 3 0 003-3V4"></path><path d="M9 20h6"></path><path d="M12 14v6"></path><path d="M4 6h2"></path><path d="M18 6h2"></path></svg>',
                                 ],
                                 'finished' => [
                                     'label' => 'Abgeschlossen',
                                     'classes' => 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300',
-                                    'svg' => '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M7 4h10v4a5 5 0 01-10 0V4z"></path><path d="M7 6H5a2 2 0 002 2"></path><path d="M17 6h2a2 2 0 01-2 2"></path></svg>',
+                                    'svg' =>
+                                        '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M7 4h10v4a5 5 0 01-10 0V4z"></path><path d="M7 6H5a2 2 0 002 2"></path><path d="M17 6h2a2 2 0 01-2 2"></path></svg>',
                                 ],
                                 default => [
                                     'label' => ucfirst((string) $tournament->status),
                                     'classes' => 'border-gray-700 bg-gray-800 text-gray-300',
-                                    'svg' => '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle></svg>',
+                                    'svg' =>
+                                        '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle></svg>',
                                 ],
                             };
                         @endphp
 
-                        <div class="tournament-sort-item border-b border-gray-700 py-3"
-                            data-id="{{ $tournament->id }}"
-                            data-tv-selected="{{ $isOnTv ? '1' : '0' }}"
-                            draggable="true">
+                        <div class="tournament-sort-item border-b border-gray-700 py-3" data-id="{{ $tournament->id }}"
+                            data-tv-selected="{{ $isOnTv ? '1' : '0' }}" draggable="true">
                             <input type="hidden" name="ordered_tournaments[]" value="{{ $tournament->id }}"
                                 form="tv-order-form">
 
@@ -89,7 +94,8 @@
                                 <div class="flex items-center gap-2">
                                     <span
                                         class="inline-flex h-10 w-10 items-center justify-center rounded-full border {{ $statusConfig['classes'] }}"
-                                        title="{{ $statusConfig['label'] }}" aria-label="{{ $statusConfig['label'] }}">
+                                        title="{{ $statusConfig['label'] }}" aria-label="{{ $statusConfig['label'] }}"
+                                        data-status="{{ $tournament->status }}">
                                         {!! $statusConfig['svg'] !!}
                                     </span>
 
@@ -102,10 +108,11 @@
                                             title="{{ $isOnTv ? 'Aus TV entfernen' : 'Zum TV hinzufügen' }}"
                                             aria-label="{{ $isOnTv ? 'Aus TV entfernen' : 'Zum TV hinzufügen' }}">
                                             <span class="relative inline-flex">
-                                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                                    aria-hidden="true">
-                                                    <rect x="3" y="5" width="18" height="12" rx="2"></rect>
+                                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                                    stroke-linejoin="round" aria-hidden="true">
+                                                    <rect x="3" y="5" width="18" height="12" rx="2">
+                                                    </rect>
                                                     <path d="M8 21h8"></path>
                                                     <path d="M12 17v4"></path>
                                                 </svg>
@@ -121,7 +128,8 @@
                                         </button>
                                     </form>
 
-                                    <a href="{{ route('tournament.follow', $tournament) }}" target="_blank" rel="noopener"
+                                    <a href="{{ route('tournament.follow', $tournament) }}" target="_blank"
+                                        rel="noopener"
                                         class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-700 text-gray-300 transition hover:border-sky-500 hover:text-sky-400"
                                         title="Follow-Seite in neuem Fenster öffnen"
                                         aria-label="Follow-Seite in neuem Fenster öffnen">
@@ -140,14 +148,15 @@
                                     </a>
 
                                     @if ($tournament->status !== 'archived')
-                                        <form method="POST" action="{{ route('tournaments.archive.store', $tournament) }}">
+                                        <form method="POST"
+                                            action="{{ route('tournaments.archive.store', $tournament) }}">
                                             @csrf
                                             <button type="submit"
                                                 class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-700 text-gray-400 transition hover:border-amber-500 hover:text-amber-400"
                                                 title="Archivieren" aria-label="Archivieren">
-                                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                                    aria-hidden="true">
+                                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                                    stroke-linejoin="round" aria-hidden="true">
                                                     <path d="M3 7h18"></path>
                                                     <path d="M5 7l1 12h12l1-12"></path>
                                                     <path d="M9 11h6"></path>
@@ -169,6 +178,106 @@
 
         </div>
     </div>
+
+    @push('scripts')
+        <script>
+            const statusConfigs = {
+                'draft': {
+                    label: 'Entwurf',
+                    classes: 'border-slate-600/80 bg-slate-500/10 text-slate-300',
+                    svg: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"></path><path d="M13 7l4 4"></path></svg>',
+                },
+                'group_running': {
+                    label: 'Gruppenphase',
+                    classes: 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300',
+                    svg: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="2"></circle><circle cx="17" cy="7" r="2"></circle><circle cx="12" cy="17" r="2"></circle><path d="M8.8 8.2l2.4 6.6"></path><path d="M15.2 8.2l-2.4 6.6"></path><path d="M9 7h6"></path></svg>',
+                },
+                'ko_running': {
+                    label: 'KO-Phase',
+                    classes: 'border-amber-500/60 bg-amber-500/10 text-amber-300',
+                    svg: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v6a3 3 0 003 3h6a3 3 0 003-3V4"></path><path d="M9 20h6"></path><path d="M12 14v6"></path><path d="M4 6h2"></path><path d="M18 6h2"></path></svg>',
+                },
+                'finished': {
+                    label: 'Abgeschlossen',
+                    classes: 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300',
+                    svg: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M7 4h10v4a5 5 0 01-10 0V4z"></path><path d="M7 6H5a2 2 0 002 2"></path><path d="M17 6h2a2 2 0 01-2 2"></path></svg>',
+                },
+            };
+
+            function createTournamentItem(tournament) {
+                const config = statusConfigs[tournament.status] || {
+                    label: tournament.status,
+                    classes: 'border-gray-700 bg-gray-800 text-gray-300',
+                    svg: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle></svg>',
+                };
+                const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                const isOnTv = tournament.is_on_tv;
+                const tvButtonClasses = isOnTv ?
+                    'border-emerald-500 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' :
+                    'border-gray-700 text-gray-400 hover:border-emerald-500 hover:text-emerald-400';
+                const tvTitle = isOnTv ? 'Aus TV entfernen' : 'Zum TV hinzufügen';
+                const tvSvg = isOnTv ?
+                    '<svg class="absolute -right-2 -top-2 h-4 w-4 rounded-full bg-gray-900 text-emerald-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.2 7.2a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.42l2.293 2.294 6.493-6.494a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>' :
+                    '';
+                return `
+<div class="tournament-sort-item border-b border-gray-700 py-3" data-id="${tournament.id}" data-tv-selected="${isOnTv ? '1' : '0'}" draggable="true">
+<input type="hidden" name="ordered_tournaments[]" value="${tournament.id}" form="tv-order-form">
+<div class="flex items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<span class="cursor-move select-none text-gray-500">::</span>
+<span class="text-lg text-white">
+<a href="/tournaments/${tournament.public_id}" class="text-emerald-400 hover:underline">
+${tournament.name}
+</a>
+</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="inline-flex h-10 w-10 items-center justify-center rounded-full border ${config.classes}" title="${config.label}" aria-label="${config.label}" data-status="${tournament.status}">
+${config.svg}
+</span>
+<form method="POST" action="/tv/toggle/${tournament.public_id}">
+<input type="hidden" name="_token" value="${csrf}">
+<button type="submit" class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition ${tvButtonClasses}" title="${tvTitle}" aria-label="${tvTitle}">
+<span class="relative inline-flex">
+<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<rect x="3" y="5" width="18" height="12" rx="2"></rect>
+<path d="M8 21h8"></path>
+<path d="M12 17v4"></path>
+</svg>
+${tvSvg}
+</span>
+</button>
+</form>
+<a href="/follow/${tournament.public_id}" target="_blank" rel="noopener" class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-700 text-gray-300 transition hover:border-sky-500 hover:text-sky-400" title="Follow-Seite in neuem Fenster öffnen" aria-label="Follow-Seite in neuem Fenster öffnen">
+<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M4 4h6v6H4z"></path>
+<path d="M14 4h6v6h-6z"></path>
+<path d="M4 14h6v6H4z"></path>
+<path d="M14 14h2"></path>
+<path d="M18 14h2v2"></path>
+<path d="M14 18h2v2h-2z"></path>
+<path d="M18 18h2v2h-2z"></path>
+<path d="M16 16h2"></path>
+</svg>
+</a>
+<form method="POST" action="/tournaments/${tournament.public_id}/archive">
+<input type="hidden" name="_token" value="${csrf}">
+<button type="submit" class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-700 text-gray-400 transition hover:border-amber-500 hover:text-amber-400" title="Archivieren" aria-label="Archivieren">
+<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M3 7h18"></path>
+<path d="M5 7l1 12h12l1-12"></path>
+<path d="M9 11h6"></path>
+<path d="M8 4h8l1 3H7l1-3z"></path>
+</svg>
+</button>
+</form>
+</div>
+</div>
+</div>
+`;
+            }
+        </script>
+    @endpush
 
     @push('scripts')
         <script>
@@ -241,7 +350,8 @@
                             body: JSON.stringify({
                                 tournaments: selectedTournamentIds(),
                                 ordered_tournaments: orderedTournamentIds(),
-                                rotation_time: Number(form.querySelector('input[name="rotation_time"]')?.value || 20),
+                                rotation_time: Number(form.querySelector(
+                                    'input[name="rotation_time"]')?.value || 20),
                             }),
                             signal: saveRequest.signal,
                         });
@@ -319,6 +429,104 @@
                 });
 
                 refreshOrderInputs();
+
+                // Live Tournament Update
+                function updateTournaments() {
+                    if (draggedItem) return;
+
+                    fetch('{{ route('tournaments.data') }}', {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            const existingItems = new Map();
+                            items().forEach(item => existingItems.set(Number(item.dataset.id), item));
+
+                            const newOrder = [];
+
+                            data.tournaments.forEach(tournament => {
+                                let item = existingItems.get(tournament.id);
+                                if (!item) {
+                                    const tempDiv = document.createElement('div');
+                                    tempDiv.innerHTML = createTournamentItem(tournament).trim();
+                                    item = tempDiv.firstElementChild;
+                                    list.appendChild(item);
+                                    // add event listeners for new item
+                                    item.addEventListener('dragstart', () => {
+                                        draggedItem = item;
+                                        item.classList.add('dragging', 'opacity-60');
+                                    });
+                                    item.addEventListener('dragend', () => {
+                                        item.classList.remove('dragging', 'opacity-60');
+                                        draggedItem = null;
+                                        refreshOrderInputs();
+                                        queuePersistTvOrder();
+                                    });
+                                } else {
+                                    // update status
+                                    const statusSpan = item.querySelector('[data-status]');
+                                    if (statusSpan && statusSpan.dataset.status !== tournament.status) {
+                                        const config = statusConfigs[tournament.status] || {
+                                            label: tournament.status,
+                                            classes: 'border-gray-700 bg-gray-800 text-gray-300',
+                                            svg: '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle></svg>',
+                                        };
+                                        statusSpan.className =
+                                            `inline-flex h-10 w-10 items-center justify-center rounded-full border ${config.classes}`;
+                                        statusSpan.title = config.label;
+                                        statusSpan.setAttribute('aria-label', config.label);
+                                        statusSpan.dataset.status = tournament.status;
+                                        statusSpan.innerHTML = config.svg;
+                                    }
+
+                                    // update tv selected
+                                    const wasOnTv = item.dataset.tvSelected === '1';
+                                    const isOnTv = tournament.is_on_tv;
+                                    if (wasOnTv !== isOnTv) {
+                                        item.dataset.tvSelected = isOnTv ? '1' : '0';
+                                        const button = item.querySelector('button[type="submit"]');
+                                        const span = button.querySelector('span.relative');
+                                        const existingCheck = span.querySelector('svg.absolute');
+                                        if (isOnTv && !existingCheck) {
+                                            span.insertAdjacentHTML('beforeend',
+                                                '<svg class="absolute -right-2 -top-2 h-4 w-4 rounded-full bg-gray-900 text-emerald-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.2 7.2a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.42l2.293 2.294 6.493-6.494a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>'
+                                                );
+                                            button.className = button.className.replace(
+                                                'border-gray-700 text-gray-400 hover:border-emerald-500 hover:text-emerald-400',
+                                                'border-emerald-500 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                                                );
+                                        } else if (!isOnTv && existingCheck) {
+                                            existingCheck.remove();
+                                            button.className = button.className.replace(
+                                                'border-emerald-500 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20',
+                                                'border-gray-700 text-gray-400 hover:border-emerald-500 hover:text-emerald-400'
+                                                );
+                                        }
+                                    }
+                                }
+                                newOrder.push(item);
+                            });
+
+                            // remove old items not in data
+                            items().forEach(item => {
+                                if (!data.tournaments.some(t => t.id == item.dataset.id)) {
+                                    item.remove();
+                                }
+                            });
+
+                            // reorder
+                            newOrder.forEach(item => list.appendChild(item));
+
+                            refreshOrderInputs();
+                        })
+                        .catch(error => console.error('Tournament update failed:', error));
+                }
+
+                // Update every 5 seconds
+                setInterval(updateTournaments, 5000);
             });
         </script>
     @endpush
