@@ -32,6 +32,14 @@ let autosimSpeed = 800;
 
 let UI = null;
 
+function storageKey(suffix) {
+    return `autosim_${window.tournamentId || 'global'}_${suffix}`;
+}
+
+function randomWinningRest() {
+    return Math.floor(Math.random() * 500) + 2;
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -62,7 +70,7 @@ function startAutoSim() {
 
     console.log("AutoSim gestartet");
 
-    localStorage.setItem('autosim_running', '1');
+    localStorage.setItem(storageKey('running'), '1');
 
     updateUI();
     runAutoSim();
@@ -82,7 +90,7 @@ function stopAutoSim() {
         autosimTimeout = null;
     }
 
-    localStorage.removeItem('autosim_running');
+    localStorage.removeItem(storageKey('running'));
 
     console.log("AutoSim gestoppt");
 
@@ -217,7 +225,7 @@ async function simulateGroup() {
     if (!groupIds.length) return false;
 
     // Round robin Gruppe
-    let groupIndex = parseInt(localStorage.getItem('autosim_group_index') || 0);
+    let groupIndex = parseInt(localStorage.getItem(storageKey('group_index')) || 0);
 
     if (groupIndex >= groupIds.length) groupIndex = 0;
 
@@ -226,6 +234,7 @@ async function simulateGroup() {
 
     const inputs = form.querySelectorAll('input[type="number"]');
     const btn = document.querySelector(`.save-btn[form="${form.id}"]`);
+    const restInput = form.querySelector('input[name="winning_rest"]');
 
     const bestOf = parseInt(form.dataset.bestof || 3);
     const needed = Math.ceil(bestOf / 2);
@@ -238,7 +247,11 @@ async function simulateGroup() {
         inputs[1].value = needed;
     }
 
-    localStorage.setItem('autosim_group_index', groupIndex + 1);
+    if (restInput) {
+        restInput.value = bestOf === 1 ? randomWinningRest() : '';
+    }
+
+    localStorage.setItem(storageKey('group_index'), groupIndex + 1);
 
     if (typeof window.submitGroupForm !== 'function') {
         btn.click();

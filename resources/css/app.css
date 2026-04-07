@@ -140,9 +140,6 @@ input[type="number"] {
 }
 
 .game-wrapper {
-    display: contents;
-}
-
-.game-wrapper {
+    display: block;
     transition: opacity .1s ease;
 }

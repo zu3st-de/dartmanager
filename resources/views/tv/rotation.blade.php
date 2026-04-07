@@ -1,114 +1,141 @@
 @extends('layouts.tv')
 
 @section('content')
-    <div id="overviewTemplate" style="display:none">{!! $initialConfig['overview_html'] !!}</div>
+    <div id="overviewTemplate" style="display:none">
+        @include('tv.partials.overview', ['tournaments' => $tournaments])
+    </div>
 
     <div id="tvStage"></div>
 @endsection
 
 @push('scripts')
+    @php
+        $rotationPayload = $tournaments
+            ->map(function ($tournament) {
+                return [
+                    'id' => $tournament->id,
+                    'name' => $tournament->name,
+                    'public_id' => $tournament->public_id,
+                    'parent_id' => $tournament->parent_id,
+                    'follow_url' => url('/follow/' . $tournament->public_id),
+                    'tv_url' => url('/tv/' . $tournament->public_id),
+                ];
+            })
+            ->values();
+    @endphp
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            const stage = document.getElementById("tvStage");
-            const overviewTemplate = document.getElementById("overviewTemplate");
-            const configUrl = "{{ route('tv.rotation-config') }}";
-
-            let config = @json($initialConfig);
-            let pages = config.pages?.length ? config.pages : [{
-                type: "overview"
-            }];
-            let index = 0;
-            let rotationTimer = null;
-
-            function currentPageKey(page) {
-                return page.type === "tournament"
-                    ? `tournament:${page.public_id ?? page.url}`
-                    : "overview";
-            }
-
-            function restartRotationTimer() {
-                if (rotationTimer) {
-                    clearInterval(rotationTimer);
-                }
-
-                rotationTimer = setInterval(next, (config.rotation_time ?? 20) * 1000);
-            }
+            const stage = document.getElementById("tvStage")
+            const overviewTemplate = document.getElementById("overviewTemplate")
+            let index = 0
+            let rotationTimer = null
+            let configPollTimer = null
+            let rotationTime = {{ \App\Models\TvTournament::where('user_id', auth()->id())->value('rotation_time') ?? 20 }}
+            let pages = buildPages(@json($rotationPayload))
 
             function showPage() {
-                const page = pages[index] ?? pages[0] ?? {
-                    type: "overview"
-                };
+                if (pages.length === 0) {
+                    stage.innerHTML =
+                        `<div class="flex min-h-[calc(100vh-5rem)] items-center justify-center text-xl text-gray-400">Keine TV-Turniere ausgewählt.</div>`
+                    stage.style.opacity = 1
+                    return
+                }
 
-                stage.style.opacity = 0;
+                const page = pages[index]
+                stage.style.opacity = 0
 
                 setTimeout(() => {
                     if (page.type === "overview") {
-                        stage.innerHTML = overviewTemplate.innerHTML;
+                        stage.innerHTML = overviewTemplate.innerHTML
                     } else {
                         stage.innerHTML =
-                            `<iframe src="${page.url}" style="width:100%;height:100vh;border:none"></iframe>`;
+                            `<iframe src="${page.url}" style="width:100%;height:100vh;border:none"></iframe>`
                     }
 
-                    stage.style.opacity = 1;
-                }, 500);
+                    stage.style.opacity = 1
+                }, 500)
             }
 
             function next() {
-                index++;
+                index++
 
                 if (index >= pages.length) {
-                    index = 0;
+                    index = 0
                 }
 
-                showPage();
+                showPage()
             }
 
-            function applyConfig(nextConfig) {
-                const currentKey = currentPageKey(pages[index] ?? {
-                    type: "overview"
-                });
+            function buildPages(tournaments) {
+                return [
+                    {
+                        type: "overview"
+                    },
+                    ...tournaments.map(tournament => ({
+                        type: "tournament",
+                        key: tournament.id,
+                        url: tournament.tv_url
+                    }))
+                ]
+            }
 
-                config = nextConfig;
-                pages = nextConfig.pages?.length ? nextConfig.pages : [{
-                    type: "overview"
-                }];
-                overviewTemplate.innerHTML = nextConfig.overview_html ?? "";
+            function scheduleRotation() {
+                if (rotationTimer) {
+                    clearInterval(rotationTimer)
+                }
 
-                const nextIndex = pages.findIndex(page => currentPageKey(page) === currentKey);
-                index = nextIndex >= 0 ? nextIndex : 0;
+                rotationTimer = setInterval(next, rotationTime * 1000)
+            }
 
-                showPage();
-                restartRotationTimer();
+            function sameTournamentSet(tournaments) {
+                const current = pages
+                    .filter(page => page.type === "tournament")
+                    .map(page => page.key)
+                const incoming = tournaments.map(tournament => tournament.id)
+
+                return JSON.stringify(current) === JSON.stringify(incoming)
             }
 
             async function refreshConfig() {
                 try {
-                    const response = await fetch(configUrl, {
-                        cache: "no-store",
+                    const res = await fetch("{{ route('tv.rotation.data') }}", {
                         headers: {
-                            "Accept": "application/json",
                             "X-Requested-With": "XMLHttpRequest"
                         }
-                    });
+                    })
 
-                    if (!response.ok) {
-                        return;
+                    if (!res.ok) {
+                        return
                     }
 
-                    const nextConfig = await response.json();
+                    const data = await res.json()
+                    const nextRotationTime = Number(data.rotationTime || 20)
+                    const tournaments = Array.isArray(data.tournaments) ? data.tournaments : []
+                    const overviewHtml = typeof data.overviewHtml === "string" ? data.overviewHtml : null
 
-                    if (nextConfig.signature !== config.signature) {
-                        applyConfig(nextConfig);
+                    if (!sameTournamentSet(tournaments)) {
+                        if (overviewHtml !== null) {
+                            overviewTemplate.innerHTML = overviewHtml
+                        }
+
+                        pages = buildPages(tournaments)
+                        index = Math.min(index, Math.max(pages.length - 1, 0))
+                        showPage()
+                    }
+
+                    if (rotationTime !== nextRotationTime) {
+                        rotationTime = nextRotationTime
+                        scheduleRotation()
                     }
                 } catch (error) {
-                    console.error("tv rotation refresh failed", error);
+                    console.error("TV Rotation Config Fehler", error)
                 }
             }
 
-            showPage();
-            restartRotationTimer();
-            setInterval(refreshConfig, 5000);
-        });
+            showPage()
+            scheduleRotation()
+            configPollTimer = setInterval(refreshConfig, 5000)
+        })
     </script>
 @endpush
 

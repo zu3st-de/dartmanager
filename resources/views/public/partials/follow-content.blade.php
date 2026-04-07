@@ -316,8 +316,7 @@
 {{-- ============================================================
 PODIUM
 ============================================================ --}}
-@if ($tournament->status === 'finished' && ($winner || $secondPlace || $thirdPlace))
-    <div id="victoryOverlay" class="victory-overlay">
+<div id="victoryOverlay" class="victory-overlay">
 
         <div class="victory-content">
 
@@ -325,7 +324,7 @@ PODIUM
                 🏆 Turniersieger 🏆
             </div>
 
-            <div class="winner-name">
+            <div class="winner-name" id="victoryWinnerName">
                 {{ $winner?->name }}
             </div>
 
@@ -333,19 +332,19 @@ PODIUM
 
                 {{-- 🥈 --}}
                 <div class="place second">
-                    <div class="name">{{ $secondPlace?->name }}</div>
+                    <div class="name" id="victorySecondName">{{ $secondPlace?->name }}</div>
                     <div class="step">🥈</div>
                 </div>
 
                 {{-- 🥇 --}}
                 <div class="place first">
-                    <div class="name">{{ $winner?->name }}</div>
+                    <div class="name" id="victoryFirstName">{{ $winner?->name }}</div>
                     <div class="step">🏆</div>
                 </div>
 
                 {{-- 🥉 --}}
                 <div class="place third">
-                    <div class="name">{{ $thirdPlace?->name }}</div>
+                    <div class="name" id="victoryThirdName">{{ $thirdPlace?->name }}</div>
                     <div class="step">🥉</div>
                 </div>
 
@@ -354,4 +353,3 @@ PODIUM
         </div>
 
     </div>
-@endif

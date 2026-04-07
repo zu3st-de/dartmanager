@@ -193,7 +193,7 @@
         /* ============================================================
            TABLE UPDATE (STABIL VERSION)
         ============================================================ */
-        const GROUP_ADVANCE_COUNT = {{ $tournament->group_advance_count }};
+        const GROUP_ADVANCE_COUNT = {{ (int) ($tournament->group_advance_count ?? 0) }};
 
         function updateTable(groups) {
 
@@ -326,6 +326,7 @@
         /* ============================================================
            REFRESH
         ============================================================ */
+        const INITIAL_PODIUM_READY = {{ !empty($podiumReady) ? 'true' : 'false' }};
         let victoryShown = localStorage.getItem("victoryShown") === "true";
         async function refreshFollow() {
 
@@ -338,17 +339,18 @@
                 updateTable(data.groups);
                 updateCurrentGames(data.groups);
 
-                if (data.tournament_status === "finished" && !victoryShown) {
+                if (data.podium_ready && !victoryShown) {
 
                     victoryShown = true;
                     localStorage.setItem("victoryShown", "true");
+                    applyPodiumData(data.podium);
 
                     setTimeout(() => {
                         showVictoryOverlay();
                     }, 800);
                 }
                 // 🔄 RESET wenn Turnier wieder offen ist
-                if (data.tournament_status !== "finished") {
+                if (!data.podium_ready) {
                     localStorage.removeItem("victoryShown");
                     victoryShown = false;
                 }
@@ -381,7 +383,13 @@
                 });
             }
             // 🔥 INITIAL CHECK (falls Seite schon finished lädt)
-            if ("{{ $tournament->status }}" === "finished") {
+            if (INITIAL_PODIUM_READY) {
+                applyPodiumData({
+                    winner: @json($winner?->name),
+                    second_place: @json($secondPlace?->name),
+                    third_place: @json($thirdPlace?->name),
+                });
+
                 setTimeout(() => {
                     showVictoryOverlay();
                 }, 1000);
@@ -493,6 +501,24 @@
                     }
                 }
             });
+        }
+
+        function applyPodiumData(podium) {
+            if (!podium) return;
+
+            const winnerName = podium.winner ?? "";
+            const secondName = podium.second_place ?? "";
+            const thirdName = podium.third_place ?? "";
+
+            const winnerEl = document.getElementById("victoryWinnerName");
+            const firstEl = document.getElementById("victoryFirstName");
+            const secondEl = document.getElementById("victorySecondName");
+            const thirdEl = document.getElementById("victoryThirdName");
+
+            if (winnerEl) winnerEl.textContent = winnerName;
+            if (firstEl) firstEl.textContent = winnerName;
+            if (secondEl) secondEl.textContent = secondName;
+            if (thirdEl) thirdEl.textContent = thirdName;
         }
 
         function showVictoryOverlay() {

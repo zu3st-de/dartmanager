@@ -2,6 +2,8 @@
 
 Ein webbasiertes Turnierverwaltungssystem fuer Dart-Turniere mit Gruppenphase, KO-Baum, TV-Ansicht und oeffentlicher Follow-Seite.
 
+Das System ist fachlich fuer Dart 501 Double-Out ausgelegt. Dazu gehoeren insbesondere die Restpunkt-Logik in der Gruppenphase bei `Bo1` sowie die auf dieses Format abgestimmte Ergebnisverwaltung. Zusaetzlich kann der Best-of-Modus fuer die Gruppenphase und fuer jede KO-Runde separat eingestellt werden.
+
 ## Features
 
 - Spielerverwaltung einzeln oder per Bulk-Import

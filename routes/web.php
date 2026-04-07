@@ -41,6 +41,10 @@ Route::get('/tv/{tournament:public_id}', [TvController::class, 'show'])
 Route::get('/tv', [TvController::class, 'rotation'])
     ->middleware('auth');
 
+Route::get('/tv/data', [TvController::class, 'rotationData'])
+    ->middleware('auth')
+    ->name('tv.rotation.data');
+
 /*
 |--------------------------------------------------------------------------
 | 🔐 Dashboard
@@ -204,8 +208,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/tv/rotation-time', [TvController::class, 'updateRotationTime'])
         ->name('tv.rotation-time');
 
-    Route::get('/tv/config', [TvController::class, 'rotationConfig'])
-        ->name('tv.rotation-config');
   });
 
 /*

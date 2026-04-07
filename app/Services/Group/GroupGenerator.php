@@ -118,7 +118,7 @@ class GroupGenerator
                     'round' => $gameData['round'],
                     'position' => $position++,
 
-                    'best_of' => $tournament->group_best_of ?? 3,
+                    'best_of' => $tournament->group_best_of ?? 1,
                 ]);
             }
         }

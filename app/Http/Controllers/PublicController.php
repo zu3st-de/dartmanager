@@ -50,15 +50,15 @@ class PublicController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        $podium = $this->resolvePodium($tournament);
+
         return view('public.follow', [
             'tournament' => $tournament,
             'groupData' => $this->buildGroupData($tournament),
             'players' => $this->getPlayers($tournament),
             'koRounds' => $this->buildKoRounds($tournament),
             'thirdPlaceMatches' => $this->getThirdPlaceMatches($tournament),
-
-            // Podium Daten
-            ...$this->resolvePodium($tournament),
+            ...$podium,
         ]);
     }
 
@@ -75,10 +75,18 @@ class PublicController extends Controller
     {
         $tournament->load($this->relations());
 
+        $podium = $this->resolvePodium($tournament);
+
         return response()->json([
             'groups' => $this->buildGroupData($tournament),
             'ko' => $this->buildKoRounds($tournament),
             'tournament_status' => $tournament->status,
+            'podium_ready' => $podium['podiumReady'],
+            'podium' => [
+                'winner' => $podium['winner']?->name,
+                'second_place' => $podium['secondPlace']?->name,
+                'third_place' => $podium['thirdPlace']?->name,
+            ],
         ]);
     }
 
@@ -242,10 +250,15 @@ class PublicController extends Controller
             $thirdPlace = $thirdPlaceMatch->winner;
         }
 
+        $podiumReady = $winner !== null
+            && $secondPlace !== null
+            && (! $tournament->has_third_place || $thirdPlace !== null);
+
         return compact(
             'winner',
             'secondPlace',
-            'thirdPlace'
+            'thirdPlace',
+            'podiumReady',
         );
     }
 
