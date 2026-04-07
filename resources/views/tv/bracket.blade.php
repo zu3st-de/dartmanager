@@ -304,9 +304,9 @@
 
         const positions = {}
 
-        function createMatch(match, x, y, round, index) {
+        function createMatch(match, x, y, round, index, roundScale) {
 
-            const scale = Math.pow(1.2, round - 1)
+            const scale = roundScale || Math.pow(1.2, round - 1)
 
             const width = baseMatchWidth * scale
             const height = baseMatchHeight * scale
@@ -463,9 +463,9 @@
 
         }
 
-        const roundKeys = Object.keys(rounds).map(Number)
+        const roundKeys = Object.keys(rounds).map(Number).sort((a, b) => a - b)
 
-        const firstRoundCount = rounds[1]?.length || 0
+        const firstRoundCount = rounds[roundKeys[0]]?.length || 0
 
         // reale Breite des ersten Rundenblocks
         const totalWidth = (firstRoundCount - 1) * baseSpacing + baseMatchWidth
@@ -473,17 +473,17 @@
         // Mitte des Screens (1920)
         const centerOffset = (1920 - totalWidth) / 2
 
-        roundKeys.forEach(roundIndex => {
+        roundKeys.forEach((roundIndex, roundIndexInVisible) => {
 
             const round = rounds[roundIndex]
 
-            const spacing = baseSpacing * Math.pow(2, roundIndex - 1)
+            const spacing = baseSpacing * Math.pow(2, roundIndexInVisible)
             const offset = spacing / 2
 
             round.forEach((match, i) => {
 
                 let x = centerOffset + offset + i * spacing
-                let y = 120 + (roundIndex - 1) * roundSpacing
+                let y = 120 + roundIndexInVisible * roundSpacing
 
                 if (roundIndex === lastRound && i === 1) {
 
@@ -495,7 +495,8 @@
 
                 }
 
-                positions[match.id] = createMatch(match, x, y, roundIndex, i)
+                positions[match.id] = createMatch(match, x, y, roundIndex, i, Math.pow(1.2,
+                    roundIndexInVisible))
 
             })
 
