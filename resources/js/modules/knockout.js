@@ -93,10 +93,14 @@ export function initKnockout() {
                 await window.reloadKoGame(id);
             }
 
+            return response;
+
         } finally {
             reloadLock = false;
         }
     }
+
+    window.submitKoForm = handleSubmit;
 
 
     document.addEventListener('click', async function (e) {

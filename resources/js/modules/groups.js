@@ -55,6 +55,26 @@ export function initGroups() {
         return data;
     }
 
+    async function processGroupForm(form) {
+        const data = await submitScore(form);
+
+        if (!data || !data.success) return data;
+
+        if (data.fullReload) {
+            location.reload();
+            return data;
+        }
+
+        await Promise.all([
+            data.game_id ? window.reloadGroupGame(data.game_id) : Promise.resolve(),
+            data.group_id ? window.reloadGroup(data.group_id) : Promise.resolve(),
+        ]);
+
+        return data;
+    }
+
+    window.submitGroupForm = processGroupForm;
+
 
     /*
     |--------------------------------------------------------------------------
@@ -67,18 +87,9 @@ export function initGroups() {
 
         const form = e.target.closest('.score-form');
 
-        const data = await submitScore(form);
+        const data = await processGroupForm(form);
 
         if (!data || !data.success) return;
-
-        // Full Reload (Reset etc.)
-        if (data.fullReload) {
-            location.reload();
-            return;
-        }
-
-        if (data.game_id) window.reloadGroupGame(data.game_id);
-        if (data.group_id) reloadGroup(data.group_id);
 
         // 👉 prüfen ob alles fertig
         setTimeout(() => {
@@ -119,12 +130,9 @@ export function initGroups() {
         }
 
         // 👉 letztes Feld → submit
-        const data = await submitScore(form);
+        const data = await processGroupForm(form);
 
         if (!data || !data.success) return;
-
-        window.reloadGroupGame(data.game_id);
-        reloadGroup(data.group_id);
 
         // 👉 prüfen ob alles fertig
         setTimeout(() => {
@@ -153,12 +161,9 @@ export function initGroups() {
 
         const form = e.target;
 
-        const data = await submitScore(form);
+        const data = await processGroupForm(form);
 
         if (!data || !data.success) return;
-
-        window.reloadGroupGame(data.game_id);
-        reloadGroup(data.group_id);
 
         // 👉 prüfen ob alles fertig
         setTimeout(() => {
@@ -236,12 +241,12 @@ window.reloadGroup = function (groupId) {
 
     if (!groupId) {
         console.warn('reloadGroup: groupId fehlt!');
-        return;
+        return Promise.resolve();
     }
 
     console.log('Reloading group:', groupId);
 
-    Promise.all([
+    return Promise.all([
         fetch(`/groups/${groupId}/table`).then(res => res.text()),
         fetch(`/groups/${groupId}/games`).then(res => res.text())
     ])
@@ -274,10 +279,10 @@ window.reloadGroupGame = function (gameId) {
 
     if (!gameId) {
         console.warn('reloadGroupGame: gameId fehlt!');
-        return;
+        return Promise.resolve();
     }
 
-    fetch(`/games/${gameId}/reload`)
+    return fetch(`/games/${gameId}/reload`)
         .then(res => res.text())
         .then(html => {
 
@@ -321,3 +326,22 @@ function allGamesFinished() {
 
     return true;
 }
+    async function processGroupForm(form) {
+        const data = await submitScore(form);
+
+        if (!data || !data.success) return data;
+
+        if (data.fullReload) {
+            location.reload();
+            return data;
+        }
+
+        await Promise.all([
+            data.game_id ? window.reloadGroupGame(data.game_id) : Promise.resolve(),
+            data.group_id ? window.reloadGroup(data.group_id) : Promise.resolve(),
+        ]);
+
+        return data;
+    }
+
+    window.submitGroupForm = processGroupForm;

@@ -101,7 +101,7 @@ function stopAutoSim() {
 | 3. wenn nichts mehr zu simulieren → abhängig von Phase reagieren
 |
 */
-function runAutoSim() {
+async function runAutoSim() {
 
     if (!autosimRunning) return;
 
@@ -114,7 +114,7 @@ function runAutoSim() {
     */
     if (status === 'group_running') {
 
-        const simulated = simulateGroup();
+        const simulated = await simulateGroup();
 
         // ❗ Keine Buttons mehr → Gruppen fertig
         if (!simulated) {
@@ -139,7 +139,7 @@ function runAutoSim() {
     */
     else if (status === 'ko_running') {
 
-        const simulated = simulateKoRound();
+        const simulated = await simulateKoRound();
 
         if (!simulated) {
             console.log("KO fertig");
@@ -187,7 +187,7 @@ function runAutoSim() {
 | false → keine Spiele mehr → Gruppenphase fertig
 |
 */
-function simulateGroup() {
+async function simulateGroup() {
 
     const forms = document.querySelectorAll('.simulate-group-form');
     if (!forms.length) return false;
@@ -240,7 +240,12 @@ function simulateGroup() {
 
     localStorage.setItem('autosim_group_index', groupIndex + 1);
 
-    btn.click();
+    if (typeof window.submitGroupForm !== 'function') {
+        btn.click();
+        return true;
+    }
+
+    await window.submitGroupForm(form);
 
     return true;
 }
@@ -255,7 +260,7 @@ function simulateGroup() {
 | - arbeitet rundenweise automatisch
 |
 */
-function simulateKoRound() {
+async function simulateKoRound() {
 
     const forms = document.querySelectorAll('.simulate-ko-form');
     if (!forms.length) return false;
@@ -281,7 +286,12 @@ function simulateKoRound() {
             inputs[1].value = needed;
         }
 
-        btn.click();
+        if (typeof window.submitKoForm !== 'function') {
+            btn.click();
+            return true;
+        }
+
+        await window.submitKoForm(form);
 
         return true;
     }
