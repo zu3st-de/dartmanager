@@ -56,4 +56,4 @@ jobs:
           DB_DATABASE: dartmanager_test
           DB_USERNAME: root
           DB_PASSWORD: ""
-        run: php artisan test
+        run: php artisan test --configuration=phpunit.ci.xml
