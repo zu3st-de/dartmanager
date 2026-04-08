@@ -5,11 +5,12 @@ namespace Tests\Feature;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Tests\TestCase;
 
 class KoTournamentStartTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, WithoutMiddleware;
 
     public function test_direct_ko_start_creates_full_bracket_and_resolves_byes(): void
     {
@@ -24,7 +25,7 @@ class KoTournamentStartTest extends TestCase
 
         foreach (range(1, 6) as $seed) {
             $tournament->players()->create([
-                'name' => 'Spieler '.$seed,
+                'name' => 'Spieler ' . $seed,
                 'seed' => $seed,
             ]);
         }
