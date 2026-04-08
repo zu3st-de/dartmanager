@@ -5,12 +5,11 @@ namespace Tests\Feature;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Tests\TestCase;
 
 class TournamentResetTest extends TestCase
 {
-    use RefreshDatabase, WithoutMiddleware;
+    use RefreshDatabase;
 
     public function test_full_tournament_reset_returns_tournament_to_draft(): void
     {

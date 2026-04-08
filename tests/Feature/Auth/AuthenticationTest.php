@@ -4,12 +4,11 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
 {
-    use RefreshDatabase, WithoutMiddleware;
+    use RefreshDatabase;
 
     public function test_login_screen_can_be_rendered(): void
     {
