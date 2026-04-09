@@ -13,7 +13,7 @@ class LuckyLoserBracketTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_lucky_loser_bracket_creates_full_bracket_and_resolves_byes(): void
+    public function test_lucky_loser_tournament_is_created_in_draft_without_bracket(): void
     {
         $user = User::factory()->create();
 
@@ -54,17 +54,9 @@ class LuckyLoserBracketTest extends TestCase
             ->where('type', 'lucky_loser')
             ->firstOrFail();
 
-        $this->assertSame('ko_running', $lucky->status);
+        $this->assertSame('draft', $lucky->status);
         $this->assertTrue((bool) $lucky->has_third_place);
         $this->assertSame(20, $lucky->players()->count());
-        $this->assertSame(32, $lucky->games()->count());
-        $this->assertSame(16, $lucky->games()->where('round', 1)->count());
-        $this->assertSame(8, $lucky->games()->where('round', 2)->count());
-        $this->assertSame(4, $lucky->games()->where('round', 3)->count());
-        $this->assertSame(2, $lucky->games()->where('round', 4)->where('is_third_place', false)->count());
-        $this->assertSame(2, $lucky->games()->where('round', 5)->count());
-        $this->assertSame(1, $lucky->games()->where('round', 5)->where('is_third_place', true)->count());
-        $this->assertSame(1, $lucky->games()->where('round', 5)->where('is_third_place', false)->count());
-        $this->assertSame(12, $lucky->games()->where('round', 1)->whereNotNull('winner_id')->count());
+        $this->assertSame(0, $lucky->games()->count());
     }
 }
