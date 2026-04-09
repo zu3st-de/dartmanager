@@ -454,31 +454,39 @@ class TvController extends Controller
             ->groupBy('round')
             ->sortKeys();
 
-        $firstVisibleRound = $mainRounds->keys()->first();
+        $firstUnfinishedRound = null;
 
         foreach ($mainRounds as $roundNumber => $games) {
             if ($games->contains(fn($game) => $game->winner_id === null)) {
-                $firstVisibleRound = $roundNumber;
+                $firstUnfinishedRound = (int) $roundNumber;
                 break;
             }
         }
 
-        if ($mainRounds->every(fn($games) => $games->every(fn($game) => $game->winner_id !== null))) {
-            $firstVisibleRound = max(
-                (int) $mainRounds->keys()->last() - 2,
-                (int) $mainRounds->keys()->first(),
-            );
-        }
+        $alwaysVisibleRoundNumbers = $mainRounds
+            ->filter(fn($games) => $games->count() <= 4)
+            ->keys()
+            ->map(fn($roundNumber) => (int) $roundNumber);
 
-        $visibleRounds = $mainRounds
-            ->filter(fn($_, $roundNumber) => (int) $roundNumber >= (int) $firstVisibleRound)
+        $activeRoundNumbers = $mainRounds
+            ->filter(fn($_, $roundNumber) => $firstUnfinishedRound !== null && (int) $roundNumber >= $firstUnfinishedRound)
+            ->keys()
+            ->map(fn($roundNumber) => (int) $roundNumber);
+
+        $visibleRoundNumbers = $alwaysVisibleRoundNumbers
+            ->concat($activeRoundNumbers)
+            ->unique()
+            ->sort()
             ->values();
 
-        // Preserve original round numbers instead of re-indexing
         $roundsByNumber = collect();
-        foreach ($visibleRounds as $games) {
-            $roundNumber = $games->first()->round;
-            $roundsByNumber->put($roundNumber, $games->values());
+
+        foreach ($visibleRoundNumbers as $roundNumber) {
+            $games = $mainRounds->get($roundNumber);
+
+            if ($games) {
+                $roundsByNumber->put($roundNumber, $games->values());
+            }
         }
 
         $thirdPlaceGames = $thirdPlaceRounds->flatten(1)->values();
