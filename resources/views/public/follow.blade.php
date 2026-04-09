@@ -94,8 +94,8 @@
 
     <script>
         /* ============================================================
-                            LOCAL STORAGE
-                            ========================================================== */
+                                    LOCAL STORAGE
+                                    ========================================================== */
         function getOpenGroups() {
             return JSON.parse(localStorage.getItem("openGroups") || "[]");
         }
@@ -328,11 +328,23 @@
         ============================================================ */
         const INITIAL_PODIUM_READY = {{ !empty($podiumReady) ? 'true' : 'false' }};
         let victoryShown = localStorage.getItem("victoryShown") === "true";
+        let lastTournamentStatus = '{{ $tournament->status }}';
         async function refreshFollow() {
 
             try {
                 const res = await fetch(window.location.pathname + "/data");
                 const data = await res.json();
+
+                // 🔄 Prüfen ob Turnierstatus sich geändert hat (z.B. von draft zu running)
+                if (data.tournament_status !== lastTournamentStatus) {
+                    lastTournamentStatus = data.tournament_status;
+
+                    // Wenn Turnier gestartet wurde (nicht mehr draft), Seite neu laden
+                    if (data.tournament_status !== 'draft') {
+                        window.location.reload();
+                        return; // Nicht weitermachen, da Seite neu geladen wird
+                    }
+                }
 
                 updateGroups(data.groups);
                 await updateKoFull();
