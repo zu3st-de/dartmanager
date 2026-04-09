@@ -2711,19 +2711,14 @@ class TournamentController extends Controller
 
         /*
     |--------------------------------------------------------------------------
-    | 🔄 KO BRACKET RESET + NEU GENERIEREN
+    | 🔄 Bracket zurücksetzen (Turnier bleibt Draft)
     |--------------------------------------------------------------------------
     */
         $lucky->games()->delete();
         $lucky->groups()->delete();
 
-        $players = $lucky->players()->get()->values();
-
-        app(\App\Services\Knockout\KnockoutGenerator::class)
-            ->generateDirectBracket($lucky, $players);
-
         $lucky->update([
-            'status' => 'ko_running',
+            'status' => 'draft',
         ]);
 
         /*
